@@ -82,6 +82,8 @@ bool FileLoader::loadn(vector<vector<double>> &datas, int epochs) {
     return !datas.empty();
 }
 
+/*FileLoader::load_ 函数用于从文件中读取一行数据，并将其解析为数值格式。这些数据将存储在 data_ 向量中。
+    函数返回一个布尔值，表示读取操作是否成功。*/
 bool FileLoader::load_() {
     if (isEof())
         return false;

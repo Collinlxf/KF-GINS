@@ -243,6 +243,7 @@ bool loadConfig(YAML::Node &config, GINSOptions &options) {
         options.initstate.vel[i]   = vec2[i];
         options.initstate.euler[i] = vec3[i] * D2R;
     }
+    // lxf高程信息的单位是m,前面会进行D2R转换，所以需要转换回来
     options.initstate.pos[2] *= R2D;
 
     // 读取IMU误差初始值(零偏和比例因子)
@@ -256,6 +257,8 @@ bool loadConfig(YAML::Node &config, GINSOptions &options) {
         std::cout << "Failed when loading configuration. Please check initial IMU error!" << std::endl;
         return false;
     }
+    // lxf 进行单位转换gyrbias的单位最终需要的是rad/h,accbias的单位最终需要的是mGal，
+    // gyrscale和accscale的单位最终需要的是ppm
     for (int i = 0; i < 3; i++) {
         options.initstate.imuerror.gyrbias[i]  = vec1[i] * D2R / 3600.0;
         options.initstate.imuerror.accbias[i]  = vec2[i] * 1e-5;

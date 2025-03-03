@@ -29,6 +29,7 @@ endtime: 0
 # initial state
 # 初始位置, 纬度 经度 高程
 # initial position, latitude, longitude, altitude. [deg, deg, m]
+# TODO 给了一个大概的位置
 initpos: [ 30.5, 114, 20 ]
 
 # 初始速度, 北向速度, 东向速度, 垂向速度
@@ -50,14 +51,17 @@ initaccscale: [ 0, 0, 0 ]   # [ppm]
 # initial state std
 # 初始位置标准差, 导航坐标系下 北向, 东向和垂向
 # initial position std, north, east and down in n-frame. [m, m, m]
+# TODO 经验估计或传感器供应商提供或实验测量
 initposstd: [ 0.1, 0.1, 0.2 ]
 
 # 初始速度标准差, 导航坐标系下北向、东向和垂向速度
 # initial velocity std, north, east and down speed in n-frame. [m/s, m/s, m/s]
+# TODO 同上
 initvelstd: [ 0.05, 0.05, 0.05 ]
 
 # 初始姿态标准差, 横滚、俯仰、航向角标准差
 # initial attitude std, roll, pitch and yaw std. [deg, deg, deg]
+# TODO 同上
 initattstd: [ 0.5, 0.5, 1.0 ]
 
 # 初始IMU零偏和比例因子标准差, IMU的三个轴
@@ -72,14 +76,28 @@ initattstd: [ 0.5, 0.5, 1.0 ]
 # IMU噪声建模参数, IMU的三个轴
 # IMU noise parameters
 imunoise:
+  # (角随机游走 Angular Random Walk)： 
   arw: [0.24, 0.24, 0.24]          # [deg/sqrt(hr)]
+  # vrw (速度随机游走 Velocity Random Walk)：
   vrw: [0.24, 0.24, 0.24]          # [m/s/sqrt(hr)]
+  #  (陀螺仪偏差标准差 Gyro Bias Standard Deviation)：
+  # [50.0, 50.0, 50.0] 表示陀螺仪零偏的标准差，单位为度/小时。
+  # 陀螺仪偏差是指陀螺仪在没有旋转时输出的非零值。
   gbstd: [50.0, 50.0, 50.0]        # [deg/hr]
+  # (加速度计偏差标准差 Accel Bias Standard Deviation)：
+  # [250.0, 250.0, 250.0] 表示加速度计零偏的标准差，单位为mGal（1 mGal = 0.001 m/s²）。
+  # 加速度计偏差是指加速度计在没有加速度时输出的非零值。
   abstd: [250.0, 250.0, 250.0]     # [mGal]
+  # [1000.0, 1000.0, 1000.0] 表示陀螺仪比例因子的标准差，单位为ppm（百万分之一）。
+  # 比例因子误差是指陀螺仪输出与实际旋转率之间的比例差异。
   gsstd: [1000.0, 1000.0, 1000.0]  # [ppm]
+  # asstd (加速度计比例因子标准差 Accel Scale Factor Standard Deviation)：
+  # [1000.0, 1000.0, 1000.0] 表示加速度计比例因子的标准差，单位为ppm。
+  # 比例因子误差是指加速度计输出与实际加速度之间的比例差异。
   asstd: [1000.0, 1000.0, 1000.0]  # [ppm]
   corrtime: 1.0                    # [hr]
 
 # 天线杆臂, IMU坐标系前右下方向
 # antenna lever, forward, right and down in the imu frame. [m]
+# antlever 参数通常指的是 GNSS 天线和 IMU 之间的距离。具体来说，这个参数定义了 GNSS 天线相对于 IMU 的位置偏移量。
 antlever: [ 0.136, -0.301, -0.184 ]

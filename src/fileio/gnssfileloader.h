@@ -38,11 +38,14 @@ public:
     const GNSS &next() {
         data_ = load();
 
+        // 第一列是时间
         gnss_.time = data_[0];
+        // 第二列到第四列是BLH坐标的纬度、经度、高程
         memcpy(gnss_.blh.data(), &data_[1], 3 * sizeof(double));
 
         // 13列GNSS文件包含GNSS速度
         if (data_.size() == 7) {
+            // 数据是7列，那么后面三列是标准差
             memcpy(gnss_.std.data(), &data_[4], 3 * sizeof(double));
         } else {
             memcpy(gnss_.std.data(), &data_[7], 3 * sizeof(double));

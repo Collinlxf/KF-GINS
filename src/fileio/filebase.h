@@ -30,8 +30,12 @@ using std::string;
 using std::vector;
 
 class FileBase {
-
-public:
+ public:
+    /* 静态常量的好处
+    1. 共享常量：静态常量在类的所有对象之间共享。这意味着所有对象都可以访问同一个常量，而不是为每个对象单独存储一份常量值。这对于节省内存和保持一致性非常有用。
+    2. 类级别访问：静态常量可以在不创建对象的情况下通过类名直接访问。这样可以方便地使用这些常量，而不需要实例化对象。例如，可以通过 FileBase::TEXT 和 FileBase::BINARY 直接访问这些常量。
+    3. 编译时常量：静态常量在编译时就确定了值，因此可以用于编译时常量表达式中，比如数组大小等。
+     */
     static const int TEXT   = 0;
     static const int BINARY = 1;
 
@@ -61,7 +65,8 @@ public:
         return columns_;
     }
 
-protected:
+    /*受保护的成员变量（protected）可以在继承类中直接访问和使用。*/
+ protected:
     std::fstream filefp_;
     int filetype_ = TEXT;
 

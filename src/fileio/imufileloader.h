@@ -33,8 +33,10 @@ public:
     ImuFileLoader(const string &filename, int columns, int rate = 200) {
         open(filename, columns, FileLoader::TEXT);
 
+        // 根据采样率计算时间间隔
         dt_ = 1.0 / (double) rate;
 
+        // 初始化imu_.time的数据
         imu_.time = 0;
     }
 
@@ -44,9 +46,12 @@ public:
         data_ = load();
 
         imu_.time = data_[0];
+        // 第二列到第四列赋值给dtheta（角增量）
         memcpy(imu_.dtheta.data(), &data_[1], 3 * sizeof(double));
+        // 第五列到第七列赋值给dvel（速度增量）
         memcpy(imu_.dvel.data(), &data_[4], 3 * sizeof(double));
 
+        // 计算时间差 dt，若时间差小于0.1，则使用实际时间差；否则使用固定时间间隔 dt_
         double dt = imu_.time - imu_pre_.time;
         if (dt < 0.1) {
             imu_.dt = dt;
@@ -55,6 +60,7 @@ public:
         }
 
         // 增量形式
+        // 如果数据大于7列，第八列赋值给odovel（里程增量）
         if (columns_ > 7) {
             imu_.odovel = data_[7] * imu_.dt;
         }
@@ -63,6 +69,7 @@ public:
     }
 
     double starttime() {
+        // 获取文件开始是时间
 
         double starttime;
         std::streampos sp = filefp_.tellg();
@@ -74,6 +81,7 @@ public:
     }
 
     double endtime() {
+        // 获取文件结束时间
 
         double endtime    = -1;
         std::streampos sp = filefp_.tellg();
