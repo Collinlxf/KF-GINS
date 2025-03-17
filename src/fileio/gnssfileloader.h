@@ -47,6 +47,9 @@ public:
         if (data_.size() == 7) {
             // 数据是7列，那么后面三列是标准差
             memcpy(gnss_.std.data(), &data_[4], 3 * sizeof(double));
+        } else if (data_.size() == 8) {
+            // 数据是8列，那么后面一列是航向角
+            gnss_.yaw = data_[7];
         } else {
             memcpy(gnss_.std.data(), &data_[7], 3 * sizeof(double));
         }

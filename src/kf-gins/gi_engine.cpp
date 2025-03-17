@@ -34,26 +34,38 @@ GIEngine::GIEngine(GINSOptions &options) {
 
     // 设置协方差矩阵，系统噪声阵和系统误差状态矩阵大小
     // resize covariance matrix, system noise matrix, and system error state matrix
+    // 协方差矩阵：描述了状态估计的不确定性。其对角线元素表示各状态变量的方差，非对角线元素表示状态变量之间的协方差。
+    // 在预测步骤中，协方差矩阵。会根据系统模型进行传播，从而预测下一时刻的协方差。
     Cov_.resize(RANK, RANK);
+    // 系统噪声矩阵，描述了系统过程中的随机扰动和不确定性。这个矩阵反映了系统模型的不完美性和外界干扰。
     Qc_.resize(NOISERANK, NOISERANK);
+    // 系统误差状态矩阵：描述了状态估计与真实状态之间的误差。这个矩阵通常用于表示状态估计的微小偏差。
+    // 会在EKF的预测和更新过程中不断调整，以改进状态估计的准确性。
     dx_.resize(RANK, 1);
     Cov_.setZero();
     Qc_.setZero();
     dx_.setZero();
 
-    // 初始化系统噪声阵
+    // 初始化系统噪声阵，系统噪声矩阵一旦设定，在后续ekf过程中不需要改变
     // initialize noise matrix
+    // 系统噪声通常是标准差，需要平方处理
     auto imunoise                   = options_.imunoise;
     Qc_.block(ARW_ID, ARW_ID, 3, 3) = imunoise.gyr_arw.cwiseProduct(imunoise.gyr_arw).asDiagonal();
+    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(VRW_ID, VRW_ID, 3, 3) = imunoise.acc_vrw.cwiseProduct(imunoise.acc_vrw).asDiagonal();
+    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(BGSTD_ID, BGSTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.gyrbias_std.cwiseProduct(imunoise.gyrbias_std).asDiagonal();
+    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(BASTD_ID, BASTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.accbias_std.cwiseProduct(imunoise.accbias_std).asDiagonal();
+    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(SGSTD_ID, SGSTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.gyrscale_std.cwiseProduct(imunoise.gyrscale_std).asDiagonal();
+    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(SASTD_ID, SASTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.accscale_std.cwiseProduct(imunoise.accscale_std).asDiagonal();
+    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
 
     // 设置系统状态(位置、速度、姿态和IMU误差)初值和初始协方差
     // set initial state (position, velocity, attitude and IMU error) and covariance
@@ -106,10 +118,14 @@ void GIEngine::newImuProcess() {
     if (res == 0) {
         // 只传播导航状态
         // only propagate navigation state
+        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
+        double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
+        pvacur_.att.euler[2] = gnss_yaw;
         insPropagation(imupre_, imucur_);
     } else if (res == 1) {
         // GNSS数据靠近上一历元，先对上一历元进行GNSS更新
         // gnssdata is near to the previous imudata, we should firstly do gnss update
+        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
         gnssUpdate(gnssdata_);
         stateFeedback();
 
@@ -118,12 +134,20 @@ void GIEngine::newImuProcess() {
     } else if (res == 2) {
         // GNSS数据靠近当前历元，先对当前IMU进行状态传播
         // gnssdata is near current imudata, we should firstly propagate navigation state
+        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
+        double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
+        std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
+        std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
+        std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
+        std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
+        pvacur_.att.euler[2] = gnss_yaw;
         insPropagation(imupre_, imucur_);
         gnssUpdate(gnssdata_);
         stateFeedback();
     } else {
         // GNSS数据在两个IMU数据之间(不靠近任何一个), 将当前IMU内插到整秒时刻
         // gnssdata is between the two imudata, we interpolate current imudata to gnss time
+        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
         IMU midimu;
         imuInterpolate(imupre_, imucur_, updatetime, midimu);
 

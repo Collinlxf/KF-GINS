@@ -22,8 +22,10 @@ imudatarate: 200
 # 处理时间段，结束时间设置为-1时则处理至IMU文件结束
 # processing interval[s]
 # process until the imufile end if set endtime to -1
+# starttime: 456300
+# endtime: -1
 starttime: 456300
-endtime: -1
+endtime: 457273
 
 # 初始状态
 # initial state
@@ -41,7 +43,7 @@ initatt: [ 0.85421502, -2.03480295, 185.70235133 ]
 
 # 初始IMU零偏和比例因子, IMU的三个轴(前、右、下)
 # initial IMU bias and scale error, three axes of the imu (forward, right and down)
-initgyrbias: [ 0, 0, 0 ]    # [deg/h]
+initgyrbias: [ 0, 0, 0 ]    # [deg/h]error
 initaccbias: [ 0, 0, 0 ]    # [mGal]
 initgyrscale: [ 0, 0, 0 ]   # [ppm]
 initaccscale: [ 0, 0, 0 ]   # [ppm]

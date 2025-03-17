@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "common/types.h"
+#include "common/angle.h"
 
 #include "kf_gins_types.h"
 

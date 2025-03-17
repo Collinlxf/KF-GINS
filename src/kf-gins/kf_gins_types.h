@@ -30,8 +30,11 @@
 #include "common/angle.h"
 
 typedef struct Attitude {
+    // 表示四元数，常用于旋转计算
     Eigen::Quaterniond qbn;
+    // 用于表示3X3矩阵， 常用于线性变换的旋转矩阵
     Eigen::Matrix3d cbn;
+    // 用于表示欧拉角，常用于描述姿态
     Eigen::Vector3d euler;
 } Attitude;
 
@@ -57,12 +60,19 @@ typedef struct NavState {
 } NavState;
 
 typedef struct ImuNoise {
+    // 角随机游走
     Eigen::Vector3d gyr_arw;
+    // 速度随机游走
     Eigen::Vector3d acc_vrw;
+    // 陀螺仪偏值标准差
     Eigen::Vector3d gyrbias_std;
+    // 加速度计偏值标准差
     Eigen::Vector3d accbias_std;
+    // 陀螺仪比例因子标准差
     Eigen::Vector3d gyrscale_std;
+    // 加速度计比例因子标准差
     Eigen::Vector3d accscale_std;
+    // 噪声相关时间
     double corr_time;
 } ImuNoise;
 

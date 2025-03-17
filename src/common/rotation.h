@@ -90,6 +90,10 @@ public:
                         Eigen::AngleAxisd(euler[0], Vector3d::UnitX()));
     }
 
+    /*
+    Eigen库提供了从旋转矩阵到四元素的隐士转换，因此在计算过程中，Eigen会自动将旋转矩阵转换成四元数，或者直接使用四元数
+    的乘法法则来计算最终的四元数
+    */ 
     static Quaterniond euler2quaternion(const Vector3d &euler) {
         return Quaterniond(Eigen::AngleAxisd(euler[2], Vector3d::UnitZ()) *
                            Eigen::AngleAxisd(euler[1], Vector3d::UnitY()) *
