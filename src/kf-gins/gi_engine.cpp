@@ -120,8 +120,12 @@ void GIEngine::newImuProcess() {
         // only propagate navigation state
         std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
         double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
-        pvacur_.att.euler[2] = gnss_yaw;
+        // pvacur_.att.euler[2] = gnss_yaw;
+        // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
         insPropagation(imupre_, imucur_);
+        // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
     } else if (res == 1) {
         // GNSS数据靠近上一历元，先对上一历元进行GNSS更新
         // gnssdata is near to the previous imudata, we should firstly do gnss update
@@ -136,12 +140,12 @@ void GIEngine::newImuProcess() {
         // gnssdata is near current imudata, we should firstly propagate navigation state
         std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
         double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
-        std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
-        std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
-        std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
-        std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
-        pvacur_.att.euler[2] = gnss_yaw;
+        // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
+        // pvacur_.att.euler[2] = gnss_yaw;
         insPropagation(imupre_, imucur_);
+        // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
         gnssUpdate(gnssdata_);
         stateFeedback();
     } else {
@@ -320,7 +324,13 @@ void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
 
     // EKF预测传播系统协方差和系统误差状态
     // do EKF predict to propagate covariance and error state
+    // std::cout<<__FILE__<<","<<__LINE__<<", "<<" before EKFPredict: "<<std::endl;
+    // std::cout<<__FILE__<<","<<__LINE__<<", "<<" before EKFPredict: dx_: \n"<<dx_<<std::endl;
+    // std::cout<<__FILE__<<","<<__LINE__<<", "<<" before EKFPredict: cov_: \n"<<Cov_<<std::endl;
     EKFPredict(Phi, Qd);
+    // std::cout<<__FILE__<<","<<__LINE__<<", "<<" before EKFPredict: "<<std::endl;
+    // std::cout<<__FILE__<<","<<__LINE__<<", "<<" before EKFPredict: dx_: \n"<<dx_<<std::endl;
+    // std::cout<<__FILE__<<","<<__LINE__<<", "<<" before EKFPredict: cov_: \n"<<Cov_<<std::endl;
 }
 
 void GIEngine::gnssUpdate(GNSS &gnssdata) {

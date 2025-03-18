@@ -9,6 +9,8 @@
 # gnsspath: "./dataset/GNSS-RTK.txt"
 imupath: "./dataset_yaw/imudata_imu_add.txt"
 gnsspath: "./dataset_yaw/gnss.txt"
+# imupath: "./dataset_yaw/V446K-IMU.txt"
+# gnsspath: "./dataset_yaw/V446K-GNSS.txt"
 # 输出文件夹路径
 # output folder path
 outputpath: "./dataset_yaw"
@@ -25,8 +27,10 @@ imudatarate: 50
 # processing interval[s]
 # process until the imufile end if set endtime to -1
 # starttime: 456300
-starttime: 461674
-endtime: 461988
+# starttime: 461674
+# endtime: 461988
+starttime: 460841
+endtime: 461106
 # endtime: -1
 
 # 初始状态
@@ -34,11 +38,13 @@ endtime: 461988
 # 初始位置, 纬度 经度 高程
 # initial position, latitude, longitude, altitude. [deg, deg, m]
 #initpos: [ 30.4447873701, 114.4718632047, 20.899 ]
-initpos: [ 30.300460, 121.298345, 21.700000 ]
+# initpos: [ 30.300460, 121.298345, 21.700000 ]
+initpos: [ 30.231728, 121.301053, 33.3 ]
 
 # 初始速度, 北向速度, 东向速度, 垂向速度
 # initial velocity, speed in the directions of north, east and down. [m/s, m/s, m/s]
-initvel: [ 12.23, 5.50, 0.0 ]
+# initvel: [ 12.23, 5.50, 0.0 ]
+initvel: [ 22.557, 1.2137, 0.0 ]
 
 # 初始姿态, 欧拉角(ZYX旋转顺序), 横滚, 俯仰, 航向
 # initial attitude, euler angle(ZYX rotation), roll, pitch, yaw [deg, deg, deg]
@@ -56,14 +62,17 @@ initaccscale: [ 0, 0, 0 ]   # [ppm]
 # 初始位置标准差, 导航坐标系下 北向, 东向和垂向
 # initial position std, north, east and down in n-frame. [m, m, m]
 initposstd: [ 0.005, 0.004, 0.008 ]
+# initposstd: [ 5, 5, 10 ]
 
 # 初始速度标准差, 导航坐标系下北向、东向和垂向速度
 # initial velocity std, north, east and down speed in n-frame. [m/s, m/s, m/s]
 initvelstd: [ 0.003, 0.004, 0.004 ]
+# initvelstd: [ 0.5, 0.5, 0.5 ]
 
 # 初始姿态标准差, 横滚、俯仰、航向角标准差
 # initial attitude std, roll, pitch and yaw std. [deg, deg, deg]
 initattstd: [ 0.003, 0.003, 0.023 ]
+# initattstd: [ 0.003, 0.003, 4 ]
 
 # 初始IMU零偏和比例因子标准差, IMU的三个轴
 # initial IMU bias and scale error std, thrss axes of the imu
@@ -76,11 +85,20 @@ initattstd: [ 0.003, 0.003, 0.023 ]
 
 # IMU噪声建模参数, IMU的三个轴
 # IMU noise parameters
+# imunoise:
+#   arw: [0.003, 0.003, 0.003]          # [deg/sqrt(hr)]
+#   vrw: [0.03, 0.03, 0.03]          # [m/s/sqrt(hr)]
+#   gbstd: [0.027, 0.027, 0.027]        # [deg/hr]
+#   abstd: [15.0, 15.0, 15.0]     # [mGal]
+#   gsstd: [300.0, 300.0, 300.0]  # [ppm]
+#   asstd: [300.0, 300.0, 300.0]  # [ppm]
+#   corrtime: 4.0                    # [hr]
+
 imunoise:
-  arw: [0.003, 0.003, 0.003]          # [deg/sqrt(hr)]
-  vrw: [0.03, 0.03, 0.03]          # [m/s/sqrt(hr)]
-  gbstd: [0.027, 0.027, 0.027]        # [deg/hr]
-  abstd: [15.0, 15.0, 15.0]     # [mGal]
+  arw: [1.0, 1.0, 1.0]          # [deg/sqrt(hr)]
+  vrw: [1.0, 1.0, 1.0]          # [m/s/sqrt(hr)]
+  gbstd: [360.0,360.0, 36.0]        # [deg/hr]
+  abstd: [10.0, 10.0, 100.0]     # [mGal]
   gsstd: [300.0, 300.0, 300.0]  # [ppm]
   asstd: [300.0, 300.0, 300.0]  # [ppm]
   corrtime: 4.0                    # [hr]
@@ -89,4 +107,4 @@ imunoise:
 # antenna lever, forward, right and down in the imu frame. [m]
 #antlever:  [ 0.136, -0.301, -0.184 ]
 # antlever:  [ 2.0, -0.301, -0.184 ]
-antlever:  [ 0.0, 0.0, 0.0]
+antlever:  [ -1.958, 0.063, -0.844]
