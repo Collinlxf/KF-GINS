@@ -35,6 +35,7 @@ typedef struct GNSS {
     Vector3d blh;
     Vector3d std;
     double yaw;
+    double speed_gps;
 
     bool isvalid;
 } GNSS;

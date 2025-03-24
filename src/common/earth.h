@@ -168,6 +168,7 @@ public:
     }
 
     /* n系相对位置转大地坐标相对位置 */
+    // 输入是大地坐标系中的位置（纬度、精度、高度），返回转换矩阵，利用该转换矩阵可以将导航坐标系中的相对位置转换为大地坐标系中的相对位置
     static Matrix3d DRi(const Vector3d &blh) {
         Matrix3d dri = Matrix3d::Zero();
 

@@ -119,6 +119,8 @@ public:
      *        get current navigation state
      * */
     NavState getNavState();
+    bool isZeroSpeed(const IMU &imu, const GNSS &gnss, bool *iszero);
+    void handleZeroSpeedCorrection(const IMU &imu);
 
     /**
      * @brief 获取当前状态协方差
@@ -217,7 +219,7 @@ private:
      *        Check if covariance diagonal elements are all positive
      * */
     void checkCov() {
-
+        // 因为协方差矩阵的元素表示状态变量的不确定性（方差），方差是一个非负数
         for (int i = 0; i < RANK; i++) {
             if (Cov_(i, i) < 0) {
                 std::cout << "Covariance is negative at " << std::setprecision(10) << timestamp_ << " !" << std::endl;

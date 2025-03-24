@@ -47,7 +47,17 @@ void INSMech::velUpdate(const PVA &pvapre, PVA &pvacur, const IMU &imupre, const
     // rotational angular velocity of n-frame to e-frame projected to n-frame, and gravity
     Eigen::Vector2d rmrn = Earth::meridianPrimeVerticalRadius(pvapre.pos(0));
     Eigen::Vector3d wie_n, wen_n;
+    // 地球自转轴与东向正交，所以地球自转投影到n系时，只有北向和地向的分量
     wie_n << WGS84_WIE * cos(pvapre.pos[0]), 0, -WGS84_WIE * sin(pvapre.pos[0]);
+    // wen_n 表示导航坐标系相对于地球坐标系的旋转角速度
+    // wen_n[0]：东向速度引起的北向角速度分量。
+    // wen_n[1]：北向速度引起的东向角速度分量。
+    // wen_n[2]：东向速度引起的地向角速度分量。
+    /*
+    1. 地向速度表示垂直于地表的运动，地向速度主要与高度变化有关，
+        而高度变化不直接影响地表的水平运动（北向和东向速度）。因此，地向速度在惯性导航计算中通常是独立处理的。
+    2. 地球的曲率和旋转效应会导致东向速度和北向速度相互影响。这是由于当载体在地表移动时，地球的曲率和自转会引起速度分量的相互耦合。
+    */
     wen_n << pvapre.vel[1] / (rmrn[1] + pvapre.pos[2]), -pvapre.vel[0] / (rmrn[0] + pvapre.pos[2]),
         -pvapre.vel[1] * tan(pvapre.pos[0]) / (rmrn[1] + pvapre.pos[2]);
     double gravity = Earth::gravity(pvapre.pos);
@@ -132,17 +142,30 @@ void INSMech::posUpdate(const PVA &pvapre, PVA &pvacur, const IMU &imupre, const
     // 重新计算 k时刻到k-1时刻 n系旋转矢量
     // recompute n-frame rotation vector (n(k) with respect to n(k-1)-frame)
     temp1 = (wie_n + wen_n) * imucur.dt;
+    /*
+    1. 导航坐标系（n系）的旋转矢量表示导航坐标系相对于地球坐标系的旋转
+    2. 导航坐标系的旋转是相对于前一个时刻的，因此表示从k时刻到k-1时刻的旋转
+    */
     qnn   = Rotation::rotvec2quaternion(temp1);
     // e系转动等效旋转矢量 (k-1时刻k时刻，所以取负号)
     // e-frame rotation vector (e(k-1) with respect to e(k)-frame)
+    /*
+    1. 地球坐标系（e系）的旋转矢量表示地球的自转的影响。
+    2. 地球自转是一个连续的过程，从k-1时刻到k时刻，地球自转了一个角度
+    3. 因此，e系的旋转矢量表示从k-1时刻到k时刻地球自转的影响。
+    */
     temp2 << 0, 0, -WGS84_WIE * imucur.dt;
     qee = Rotation::rotvec2quaternion(temp2);
 
     // 位置更新完成
     // position update finish
+    // 前一个时刻n系到e系的旋转四元数
     qne           = Earth::qne(pvapre.pos);
+    // 当前时刻n系到e系旋转四元数 = 两时刻e系旋转四元数 * 先前n系到e系旋转四元数 * 两时刻n系旋转四元数：
     qne           = (qee * qne * qnn).normalized();
+    // 当前时刻高程 = 先前高程 - 高程方向速度 * 采样间隔（因为北东地，计算出的速度时地向的，所以减）：
     pvacur.pos[2] = pvapre.pos[2] - midvel[2] * imucur.dt;
+    // 调用 blh() 根据 n 系到 e 系旋转四元数计算经纬度：
     pvacur.pos    = Earth::blh(qne, pvacur.pos[2]);
 }
 

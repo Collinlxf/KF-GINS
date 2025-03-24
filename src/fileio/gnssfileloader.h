@@ -31,7 +31,8 @@ class GnssFileLoader : public FileLoader {
 
 public:
     GnssFileLoader() = delete;
-    explicit GnssFileLoader(const string &filename, int columns = 7) {
+    // columns最好跟文件的实际列数一致
+    explicit GnssFileLoader(const string &filename, int columns = 8) {
         open(filename, columns, FileLoader::TEXT);
     }
 
@@ -47,13 +48,14 @@ public:
         if (data_.size() == 7) {
             // 数据是7列，那么后面三列是标准差
             memcpy(gnss_.std.data(), &data_[4], 3 * sizeof(double));
-        } else if (data_.size() == 8) {
+        } else if (data_.size() == 9) {
             // 数据是8列，那么第5、6、7列是标准差，第八列是航向角
             memcpy(gnss_.std.data(), &data_[4], 3 * sizeof(double));
             gnss_.std[0] = 5.0;
             gnss_.std[1] = 5.0;
             gnss_.std[2] = 8.0;
             gnss_.yaw = data_[7];
+            gnss_.speed_gps = data_[8];
         } else {
             memcpy(gnss_.std.data(), &data_[7], 3 * sizeof(double));
         }

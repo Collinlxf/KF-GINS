@@ -95,6 +95,7 @@ int main(int argc, char *argv[]) {
 
     // 加载GNSS文件和IMU文件
     // load GNSS file and IMU file
+    // 创建一个 GnssFileLoader 对象 gnssfile，并打开了指定路径的GNSS数据文件进行读取和解析。
     GnssFileLoader gnssfile(gnsspath);
     ImuFileLoader imufile(imupath, imudatalen, imudatarate);
 
@@ -124,7 +125,7 @@ int main(int argc, char *argv[]) {
     if (endtime < 0) {
         endtime = imufile.endtime();
     }
-    if (endtime > 604800 || starttime < imufile.starttime() || starttime > endtime) {
+    if (endtime > 60480000000 || starttime < imufile.starttime() || starttime > endtime) {
         std::cout << "Process time ERROR!" << std::endl;
         return -1;
     }
@@ -175,6 +176,9 @@ int main(int argc, char *argv[]) {
             break;
         }
         giengine.addImuData(imu_cur);
+        if (imu_cur.dt < 0.0001) {
+            continue;
+        }
 
         // 处理新的IMU数据
         // process new imudata
