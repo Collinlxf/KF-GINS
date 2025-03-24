@@ -48,7 +48,7 @@ public:
         if (data_.size() == 7) {
             // 数据是7列，那么后面三列是标准差
             memcpy(gnss_.std.data(), &data_[4], 3 * sizeof(double));
-        } else if (data_.size() == 9) {
+        } else if (data_.size() == 10) {
             // 数据是8列，那么第5、6、7列是标准差，第八列是航向角
             memcpy(gnss_.std.data(), &data_[4], 3 * sizeof(double));
             gnss_.std[0] = 5.0;
@@ -56,6 +56,7 @@ public:
             gnss_.std[2] = 8.0;
             gnss_.yaw = data_[7];
             gnss_.speed_gps = data_[8];
+            gnss_.sat_num = data_[9];
         } else {
             memcpy(gnss_.std.data(), &data_[7], 3 * sizeof(double));
         }

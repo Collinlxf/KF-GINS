@@ -78,6 +78,14 @@ void GIEngine::initialize(const NavState &initstate, const NavState &initstate_s
     // initialize position, velocity and attitude
     pvacur_.pos       = initstate.pos;
     pvacur_.vel       = initstate.vel;
+    /* 
+    汽车类的组合导航中pvacur_.att.euler中的欧拉角通常表示从导航坐标系到载体坐标系的旋转变化
+    gps的yaw角可以直接用作欧拉角的yaw角，但是pitch和roll角需要根据载体坐标系的速度和加速度计算得到
+    gps的yaw角可以直接用作欧拉角的yaw角的原因：
+    1. 载体坐标系的x轴是指向前方的
+    2. gps提供的yaw角是车辆前进方向（车头方向）与地理北向的夹角
+    3. 欧拉角的yaw角是载体坐标系的x轴（车头方向）与导航坐标系的北向的夹角
+    */
     pvacur_.att.euler = initstate.euler;
     pvacur_.att.cbn   = Rotation::euler2matrix(pvacur_.att.euler);
     pvacur_.att.qbn   = Rotation::euler2quaternion(pvacur_.att.euler);
@@ -91,6 +99,16 @@ void GIEngine::initialize(const NavState &initstate, const NavState &initstate_s
 
     // 初始化协方差
     // initialize covariance
+    /*
+    协方差矩阵中的对角线元素表示各个状态变量的方差，而非对角线元素表示状态变量之间的协方差。对角线元素和非对角线元素的含义如下：
+    1. 对角线元素：表示单个状态变量的方差，即该变量的估计误差的平方。方差越大，表示该变量的不确定性越高。
+    2. 非对角线元素：表示两个状态变量之间的协方差，即它们之间的相关性。如果两个变量之间没有相关性，协方差为零。
+    初始化的时候为什么只初始化对角线元素：
+    1. 初始简化：在系统初始化时，假设各个误差源之间是独立的，可以简化计算和分析。随着系统运行，
+        滤波算法（如卡尔曼滤波）会根据实际数据更新协方差矩阵，包括非对角线元素。
+    2. 无先验信息：在很多情况下，初始时没有先验信息表明各个状态变量之间存在显著的相关性。因此，默认各个变量之间没有关联。
+    3. 递推更新：滤波器（如卡尔曼滤波器）在后续的状态估计过程中，会根据传感器数据和系统模型递推更新协方差矩阵，包括可能的相关性。
+    */
     ImuError imuerror_std            = initstate_std.imuerror;
     Cov_.block(P_ID, P_ID, 3, 3)     = initstate_std.pos.cwiseProduct(initstate_std.pos).asDiagonal();
     Cov_.block(V_ID, V_ID, 3, 3)     = initstate_std.vel.cwiseProduct(initstate_std.vel).asDiagonal();
@@ -130,7 +148,9 @@ void GIEngine::newImuProcess() {
         // GNSS数据靠近上一历元，先对上一历元进行GNSS更新
         // gnssdata is near to the previous imudata, we should firstly do gnss update
         std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
+        // gnssUpdate进行 GNSS 量测更新
         gnssUpdate(gnssdata_);
+        // stateFeedback进行系统状态反馈
         stateFeedback();
 
         pvapre_ = pvacur_;
@@ -192,18 +212,29 @@ void GIEngine::imuCompensate(IMU &imu) {
     Eigen::Vector3d gyrscale, accscale;
     gyrscale   = Eigen::Vector3d::Ones() + imuerror_.gyrscale;
     accscale   = Eigen::Vector3d::Ones() + imuerror_.accscale;
+    // cwiseProduct：逐元素乘法。cwiseInverse：逐元素取倒数。
     imu.dtheta = imu.dtheta.cwiseProduct(gyrscale.cwiseInverse());
     imu.dvel   = imu.dvel.cwiseProduct(accscale.cwiseInverse());
 }
 
 void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
 
-    // 对当前IMU数据(imucur)补偿误差, 上一IMU数据(imupre)已经补偿过了
-    // compensate imu error to 'imucur', 'imupre' has been compensated
-    imuCompensate(imucur);
-    // IMU状态更新(机械编排算法)
-    // update imustate(mechanization)
-    INSMech::insMech(pvapre_, pvacur_, imupre, imucur);
+    bool zero_speed = false;
+    isZeroSpeed(imucur_, gnssdata_, &zero_speed);
+    // if (true == zero_speed) {
+    if (true == false) {
+        handleZeroSpeedCorrection(imucur_);
+         std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
+        return;
+    } else {
+        // 对当前IMU数据(imucur)补偿误差, 上一IMU数据(imupre)已经补偿过了
+        // compensate imu error to 'imucur', 'imupre' has been compensated
+        imuCompensate(imucur);
+        // IMU状态更新(机械编排算法)
+        // update imustate(mechanization)
+        INSMech::insMech(pvapre_, pvacur_, imupre, imucur);
+         std::cout << __FILE__ << __LINE__ << "Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
+    }
 
     // 系统噪声传播，姿态误差采用phi角误差模型
     // system noise propagate, phi-angle error model for attitude error
@@ -399,6 +430,7 @@ void GIEngine::EKFPredict(Eigen::MatrixXd &Phi, Eigen::MatrixXd &Qd) {
     // 传播系统协方差和误差状态
     // propagate system covariance and error state
     Cov_ = Phi * Cov_ * Phi.transpose() + Qd;
+    std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
     dx_  = Phi * dx_;
 }
 
@@ -425,6 +457,7 @@ void GIEngine::EKFUpdate(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixX
     // the following formula can be simplified as : dx_ = K * dz;
     dx_  = dx_ + K * (dz - H * dx_);
     Cov_ = I * Cov_ * I.transpose() + K * R * K.transpose();
+    std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
 }
 
 void GIEngine::stateFeedback() {
@@ -433,6 +466,16 @@ void GIEngine::stateFeedback() {
 
     // 位置误差反馈
     // posisiton error feedback
+    /*
+    P_ID：起始的行索引
+    0,起始的列索引
+    3,要复制的行数
+    1,要复制的列数
+    */
+    /*
+    位置和速度误差修正：（通过减法实现）
+    IMU零偏和比例因子误差修正：（通过加法实现）
+    */
     Eigen::Vector3d delta_r = dx_.block(P_ID, 0, 3, 1);
     Eigen::Matrix3d Dr_inv  = Earth::DRi(pvacur_.pos);
     pvacur_.pos -= Dr_inv * delta_r;
@@ -479,4 +522,55 @@ NavState GIEngine::getNavState() {
     state.imuerror = imuerror_;
 
     return state;
+}
+
+// 零速检测函数
+bool GIEngine::isZeroSpeed(const IMU &imu, const GNSS &gnss, bool *iszero) {
+    // 加速度幅值检测
+    double acc_mag = imu.dvel.norm();  // 注意：此处使用dvel（已补偿速度）
+    std::cout << __FILE__ << __LINE__ << "imu.time: " << imu.time << std::endl;
+    std::cout << __FILE__ << __LINE__ << "gps.time: " << gnss.time << std::endl;
+    // std::cout << "acc_mag: " << acc_mag << std::endl;
+    // if (acc_mag < 0.15) {
+    //     std::cout << "acc_mag: " << acc_mag << std::endl;
+    //     *iszero = true;
+    //     return iszero;
+    // }
+
+    // // 陀螺仪角速度检测
+    // double gyro_mag = imu.dtheta.norm();
+    // std::cout << "gyro_mag: " << gyro_mag << std::endl;
+    // if (gyro_mag < 0.01)  {
+    //     std::cout << "gyro_mag: " << gyro_mag << std::endl;
+    //     *iszero = true;
+    //     return iszero;
+    // }
+    // 轮速计检测（可选）
+
+    std::cout << "gnss.speed_gps: " << gnss.speed_gps << std::endl;
+    if (gnss.speed_gps < 0.2) {
+        std::cout << "gnss.speed_gps: " << gnss.speed_gps << std::endl;
+        *iszero = true;
+        return iszero;
+    }
+    // GPS信号无效
+    return false;
+}
+
+// 零速修正处理
+void GIEngine::handleZeroSpeedCorrection(const IMU &imu) {
+    // 冻结位置和速度误差：将协方差矩阵对角线元素置零
+    double epsilon = 1e-6;  // 很小的正数，用于确保协方差矩阵的正定性
+     Cov_.block(P_ID, P_ID, 3, 3) = Eigen::Matrix3d::Identity() * epsilon;
+    Cov_.block(V_ID, V_ID, 3, 3) = Eigen::Matrix3d::Identity() * epsilon;
+
+    // 强制补偿IMU零偏和比例因子
+    imuerror_.gyrbias.setZero();    // 清零陀螺仪零偏
+    imuerror_.accbias.setZero();    // 清零加速度计零偏
+    imuerror_.gyrscale.setZero();   // 清零陀螺仪比例因子
+    imuerror_.accscale.setZero();   // 清零加速度计比例因子
+
+    // 更新当前状态
+    pvacur_.vel.setZero();  // 速度置零
+    pvacur_.pos = pvapre_.pos;  // 位置保持前一状态
 }

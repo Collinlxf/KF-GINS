@@ -172,6 +172,7 @@ int main(int argc, char *argv[]) {
         // 读取并添加新的IMU数据到GIEngine
         // load new imudata and add it to GIEngine
         imu_cur = imufile.next();
+        std::cout << __FILE__ << __LINE__ << "imu_cur.time: " << imu_cur.time << std::endl;
         if (imu_cur.time > endtime || imufile.isEof()) {
             break;
         }
