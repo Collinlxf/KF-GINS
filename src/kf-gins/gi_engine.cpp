@@ -127,7 +127,8 @@ void GIEngine::newImuProcess() {
 
     // 如果GNSS有效，则将更新时间设置为GNSS时间
     // set update time as the gnss time if gnssdata is valid
-    double updatetime = gnssdata_.isvalid ? gnssdata_.time : -1;
+    // double updatetime = gnssdata_.isvalid ? gnssdata_.time : -1;
+    double updatetime = gnssdata_.sat_num > 8 ? gnssdata_.time : -1;
 
     // 判断是否需要进行GNSS更新
     // determine if we should do GNSS update
