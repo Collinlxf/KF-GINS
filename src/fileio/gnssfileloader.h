@@ -32,7 +32,7 @@ class GnssFileLoader : public FileLoader {
 public:
     GnssFileLoader() = delete;
     // columns最好跟文件的实际列数一致
-    explicit GnssFileLoader(const string &filename, int columns = 8) {
+    explicit GnssFileLoader(const string &filename, int columns = 10) {
         open(filename, columns, FileLoader::TEXT);
     }
 
@@ -62,9 +62,9 @@ public:
         }
         gnss_.blh[0] *= D2R;
         gnss_.blh[1] *= D2R;
-        std::cout << __FILE__ << __LINE__ << "gnss_.std[0]: " << gnss_.std[0] << std::endl;
-        std::cout << __FILE__ << __LINE__ << "gnss_.std[1]: " << gnss_.std[1] << std::endl;
-        std::cout << __FILE__ << __LINE__ << "gnss_.std[2]: " << gnss_.std[2] << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "gnss_.std[0]: " << gnss_.std[0] << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "gnss_.std[1]: " << gnss_.std[1] << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "gnss_.std[2]: " << gnss_.std[2] << std::endl;
         return gnss_;
     }
 

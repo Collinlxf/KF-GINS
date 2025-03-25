@@ -1,25 +1,3 @@
-/*
- * KF-GINS: An EKF-Based GNSS/INS Integrated Navigation System
- *
- * Copyright (C) 2022 i2Nav Group, Wuhan University
- *
- *     Author : Liqiang Wang
- *    Contact : wlq@whu.edu.cn
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 #include "common/earth.h"
 #include "common/rotation.h"
 
@@ -31,6 +9,16 @@ GIEngine::GIEngine(GINSOptions &options) {
     this->options_ = options;
     options_.print_options();
     timestamp_ = 0;
+
+    /*
+    位置误差 (P_ID) - 3维
+    速度误差 (V_ID) - 3维
+    姿态误差 (PHI_ID) - 3维，使用phi角误差模型
+    陀螺仪零偏误差 (BG_ID) - 3维
+    加速度计零偏误差 (BA_ID) - 3维
+    陀螺仪比例因子误差 (SG_ID) - 3维
+    加速度计比例因子误差 (SA_ID) - 3维
+    */
 
     // 设置协方差矩阵，系统噪声阵和系统误差状态矩阵大小
     // resize covariance matrix, system noise matrix, and system error state matrix
@@ -51,21 +39,21 @@ GIEngine::GIEngine(GINSOptions &options) {
     // 系统噪声通常是标准差，需要平方处理
     auto imunoise                   = options_.imunoise;
     Qc_.block(ARW_ID, ARW_ID, 3, 3) = imunoise.gyr_arw.cwiseProduct(imunoise.gyr_arw).asDiagonal();
-    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
+    // std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(VRW_ID, VRW_ID, 3, 3) = imunoise.acc_vrw.cwiseProduct(imunoise.acc_vrw).asDiagonal();
-    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
+    // std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(BGSTD_ID, BGSTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.gyrbias_std.cwiseProduct(imunoise.gyrbias_std).asDiagonal();
-    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
+    // std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(BASTD_ID, BASTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.accbias_std.cwiseProduct(imunoise.accbias_std).asDiagonal();
-    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
+    // std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(SGSTD_ID, SGSTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.gyrscale_std.cwiseProduct(imunoise.gyrscale_std).asDiagonal();
-    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
+    // std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
     Qc_.block(SASTD_ID, SASTD_ID, 3, 3) =
         2 / imunoise.corr_time * imunoise.accscale_std.cwiseProduct(imunoise.accscale_std).asDiagonal();
-    std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
+    // std::cout << "Qc_ Matrix:\n" << Qc_ << std::endl;
 
     // 设置系统状态(位置、速度、姿态和IMU误差)初值和初始协方差
     // set initial state (position, velocity, attitude and IMU error) and covariance
@@ -127,8 +115,8 @@ void GIEngine::newImuProcess() {
 
     // 如果GNSS有效，则将更新时间设置为GNSS时间
     // set update time as the gnss time if gnssdata is valid
-    // double updatetime = gnssdata_.isvalid ? gnssdata_.time : -1;
-    double updatetime = gnssdata_.sat_num > 8 ? gnssdata_.time : -1;
+    double updatetime = gnssdata_.isvalid ? gnssdata_.time : -1;
+    // double updatetime = gnssdata_.sat_num > 8 ? gnssdata_.time : -1;
 
     // 判断是否需要进行GNSS更新
     // determine if we should do GNSS update
@@ -225,7 +213,7 @@ void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
     // if (true == zero_speed) {
     if (true == false) {
         handleZeroSpeedCorrection(imucur_);
-         std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
+        //  std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
         return;
     } else {
         // 对当前IMU数据(imucur)补偿误差, 上一IMU数据(imupre)已经补偿过了
@@ -234,7 +222,7 @@ void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
         // IMU状态更新(机械编排算法)
         // update imustate(mechanization)
         INSMech::insMech(pvapre_, pvacur_, imupre, imucur);
-         std::cout << __FILE__ << __LINE__ << "Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
+        //  std::cout << __FILE__ << __LINE__ << "Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
     }
 
     // 系统噪声传播，姿态误差采用phi角误差模型
@@ -243,6 +231,45 @@ void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
 
     // 初始化Phi阵(状态转移矩阵)，F阵，Qd阵(传播噪声阵)，G阵(噪声驱动阵)
     // initialize Phi (state transition), F matrix, Qd(propagation noise) and G(noise driven) matrix
+    /*
+    矩阵	作用	            更新方式	                        更新时机
+    Phi	状态转移预测	        基于IMU数据和地球模型动态计算	    每次IMU数据更新时
+    F	线性化状态转移方程	    基于IMU数据和地球模型动态计算	    每次IMU数据更新时
+    Qd	建模系统噪声统计特性	预设或基于IMU噪声参数动态调参	        初始化或调参阶段
+    G	映射噪声到状态空间	    基于当前IMU姿态动态生成	            每次IMU数据更新时
+    */
+
+    /*
+    Phi矩阵（状态转移矩阵）
+    数学定义：离散状态方程的系数矩阵，描述误差状态如何随时间演化
+    计算方法：通过一阶泰勒近似：Φ = I + F·dt
+    物理意义：表示当前误差状态对下一时刻误差状态的影响
+    作用：用于预测下一时刻的误差状态和协方差传播
+
+    F矩阵（系统动力学矩阵）
+    数学定义：连续时间误差状态方程的雅可比矩阵
+    计算方法：基于INS误差传播方程进行导数计算
+    物理意义：描述各误差状态之间的动态关系
+    作用：用于构造离散状态转移矩阵Phi
+    F矩阵中包含：
+    位置误差相对于位置、速度的变化率
+    速度误差相对于位置、速度、姿态、加速度计零偏和比例因子的变化率
+    姿态误差相对于位置、速度、姿态、陀螺仪零偏和比例因子的变化率
+    IMU误差参数（零偏、比例因子）的一阶高斯-马尔科夫过程模型
+
+    Qd矩阵（离散过程噪声协方差矩阵）
+    数学定义：系统噪声的协方差矩阵
+    计算方法：Qd = G·Qc·G'·dt + 高阶修正项
+    物理意义：表征系统不确定性的增长程度
+    作用：用于协方差矩阵的预测更新
+
+    G矩阵（噪声驱动矩阵）
+    数学定义：将噪声向量映射到状态空间的矩阵
+    计算方法：基于当前姿态和IMU误差模型构建
+    物理意义：描述各种噪声源（ARW、VRW等）如何影响系统状态
+    作用：用于计算系统噪声协方差矩阵Qd
+    */
+
     Phi.resizeLike(Cov_);
     F.resizeLike(Cov_);
     Qd.resizeLike(Cov_);
@@ -274,16 +301,67 @@ void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
 
     // 位置误差
     // position error
+    /*
+    δṗ = F_pp · δp + F_pv · δv
+    δp 是位置误差向量 [δL, δλ, δh]（纬度误差、经度误差、高度误差）
+    δv 是速度误差向量 [δvn, δve, δvd]（北向、东向、下向速度误差）
+    F_pp 是位置误差对位置误差变化率的影响矩阵
+    F_pv 是速度误差对位置误差变化率的影响矩阵
+    */
+   /*
+   数据示例
+   Eigen::MatrixXd F = Eigen::MatrixXd::Zero(10, 10);
+   Eigen::Matrix3d temp;
+    temp << 10, 20, 30,
+            40, 50, 60,
+            70, 80, 90;
+    // 将 temp 的值赋给 F 的特定位置
+    F.block(P_ID, P_ID, 3, 3) = temp;
+
+    // 将单位矩阵赋给 F 的另一个特定位置
+    F.block(P_ID, V_ID, 3, 3) = Eigen::Matrix3d::Identity();
+
+    输出：
+    Matrix F:
+    10 20 30  1  0  0  0  0  0  0
+    40 50 60  0  1  0  0  0  0  0
+    70 80 90  0  0  1  0  0  0  0
+    0  0  0  0  0  0  0  0  0  0
+    0  0  0  0  0  0  0  0  0  0
+    0  0  0  0  0  0  0  0  0  0
+    0  0  0  0  0  0  0  0  0  0
+    0  0  0  0  0  0  0  0  0  0
+    0  0  0  0  0  0  0  0  0  0
+    0  0  0  0  0  0  0  0  0  0
+   */
     temp.setZero();
+    /*
+    纬度误差变化率(δL̇)对位置的依赖：
+    -vd/(Rm+h)向下速度越大，纬度误差变化越快，表示下沉越快会导致纬度计算偏差越大
+    vn/(Rm+h)：沿子午圈方向（北向）运动时，高度误差会影响纬度计算
+    */ 
     temp(0, 0)                = -pvapre_.vel[2] / rmh;
     temp(0, 2)                = pvapre_.vel[0] / rmh;
+    /*
+    经度误差变化率(δλ̇)对位置的依赖：
+    ve*tan(L)/(Rn+h)：东向速度在高纬度地区（tan(L)大）导致的经度误差变化更大，这反映了经线汇聚效应
+    -(vd+vn*tan(L))/(Rn+h)：既与下沉速度有关，也与北向速度在高纬度区域的影响有关
+    ve/(Rn+h)：高度误差会影响东向运动引起的经度计算
+    */
     temp(1, 0)                = pvapre_.vel[1] * tan(pvapre_.pos[0]) / rnh;
     temp(1, 1)                = -(pvapre_.vel[2] + pvapre_.vel[0] * tan(pvapre_.pos[0])) / rnh;
     temp(1, 2)                = pvapre_.vel[1] / rnh;
     F.block(P_ID, P_ID, 3, 3) = temp;
+    // 速度误差对位置误差的直接影响：
+    /*
+    单位矩阵表示速度误差直接积分成位置误差，即：
+    北向速度误差导致纬度误差增长
+    东向速度误差导致经度误差增长
+    垂直速度误差导致高度误差增长
+    */
     F.block(P_ID, V_ID, 3, 3) = Eigen::Matrix3d::Identity();
 
-    // 速度误差
+    // 速度误差相对于位置、速度、姿态、加速度计零偏和比例因子的变化率
     // velocity error
     temp.setZero();
     temp(0, 0) = -2 * pvapre_.vel[1] * WGS84_WIE * cos(pvapre_.pos[0]) / rmh -
@@ -310,7 +388,7 @@ void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
     F.block(V_ID, BA_ID, 3, 3)  = pvapre_.att.cbn;
     F.block(V_ID, SA_ID, 3, 3)  = pvapre_.att.cbn * (accel.asDiagonal());
 
-    // 姿态误差
+    // 姿态误差相对于位置、速度、姿态、陀螺仪零偏和比例因子的变化率
     // attitude error
     temp.setZero();
     temp(0, 0) = -WGS84_WIE * sin(pvapre_.pos[0]) / rmh;
@@ -431,7 +509,7 @@ void GIEngine::EKFPredict(Eigen::MatrixXd &Phi, Eigen::MatrixXd &Qd) {
     // 传播系统协方差和误差状态
     // propagate system covariance and error state
     Cov_ = Phi * Cov_ * Phi.transpose() + Qd;
-    std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
+    // std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
     dx_  = Phi * dx_;
 }
 
@@ -458,7 +536,7 @@ void GIEngine::EKFUpdate(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixX
     // the following formula can be simplified as : dx_ = K * dz;
     dx_  = dx_ + K * (dz - H * dx_);
     Cov_ = I * Cov_ * I.transpose() + K * R * K.transpose();
-    std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
+    // std::cout << __FILE__ << __LINE__ <<"Cov_ Matrix Diagonal Elements:\n" << Cov_.diagonal() << std::endl;
 }
 
 void GIEngine::stateFeedback() {
@@ -529,8 +607,6 @@ NavState GIEngine::getNavState() {
 bool GIEngine::isZeroSpeed(const IMU &imu, const GNSS &gnss, bool *iszero) {
     // 加速度幅值检测
     double acc_mag = imu.dvel.norm();  // 注意：此处使用dvel（已补偿速度）
-    std::cout << __FILE__ << __LINE__ << "imu.time: " << imu.time << std::endl;
-    std::cout << __FILE__ << __LINE__ << "gps.time: " << gnss.time << std::endl;
     // std::cout << "acc_mag: " << acc_mag << std::endl;
     // if (acc_mag < 0.15) {
     //     std::cout << "acc_mag: " << acc_mag << std::endl;
@@ -548,7 +624,7 @@ bool GIEngine::isZeroSpeed(const IMU &imu, const GNSS &gnss, bool *iszero) {
     // }
     // 轮速计检测（可选）
 
-    std::cout << "gnss.speed_gps: " << gnss.speed_gps << std::endl;
+    // std::cout << "gnss.speed_gps: " << gnss.speed_gps << std::endl;
     if (gnss.speed_gps < 0.2) {
         std::cout << "gnss.speed_gps: " << gnss.speed_gps << std::endl;
         *iszero = true;

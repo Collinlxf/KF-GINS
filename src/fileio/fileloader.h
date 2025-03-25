@@ -23,6 +23,9 @@
 #ifndef FILELOADER_H
 #define FILELOADER_H
 
+#include <iostream>
+#include <iomanip>
+
 #include "filebase.h"
 
 class FileLoader : public FileBase {

@@ -9,6 +9,7 @@
 # gnsspath: "./dataset/GNSS-RTK.txt"
 imupath: "./dataset_yaw/imu_text8.txt"
 gnsspath: "./dataset_yaw/gnss_text8.txt"
+vehspeedpath: "./dataset_yaw/vehspeed_text8.txt"
 # imupath: "./dataset_yaw/V446K-IMU.txt"
 # gnsspath: "./dataset_yaw/V446K-GNSS.txt"
 # 输出文件夹路径
@@ -18,6 +19,7 @@ outputpath: "./dataset_yaw"
 # IMU文件列数 (只会用前7列IMU数据)
 # IMU data columns, only use the first seven columns
 imudatalen: 7
+# 轮速信息是10hz
 # IMU原始数据频率
 # IMU datarate [Hz]
 # imudatarate: 200

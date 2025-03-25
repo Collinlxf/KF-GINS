@@ -41,6 +41,12 @@ typedef struct GNSS {
     bool isvalid;
 } GNSS;
 
+typedef struct Veh_Speed {
+    double time;
+
+    double speed_veh;
+} Veh_Speed;
+
 typedef struct IMU {
     double time;
     double dt;

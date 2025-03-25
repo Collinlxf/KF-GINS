@@ -30,6 +30,7 @@
 #include "fileio/filesaver.h"
 #include "fileio/gnssfileloader.h"
 #include "fileio/imufileloader.h"
+#include "fileio/vehspeedfileloader.h"
 
 #include "kf-gins/gi_engine.h"
 
@@ -68,10 +69,11 @@ int main(int argc, char *argv[]) {
 
     // 读取文件路径配置
     // load filepath configuration
-    std::string imupath, gnsspath, outputpath;
+    std::string imupath, gnsspath, vehspeedpath, outputpath;
     try {
         imupath    = config["imupath"].as<std::string>();
         gnsspath   = config["gnsspath"].as<std::string>();
+        vehspeedpath = config["vehspeedpath"].as<std::string>();
         outputpath = config["outputpath"].as<std::string>();
     } catch (YAML::Exception &exception) {
         std::cout << "Failed when loading configuration. Please check the file path and output path!" << std::endl;
@@ -98,6 +100,7 @@ int main(int argc, char *argv[]) {
     // 创建一个 GnssFileLoader 对象 gnssfile，并打开了指定路径的GNSS数据文件进行读取和解析。
     GnssFileLoader gnssfile(gnsspath);
     ImuFileLoader imufile(imupath, imudatalen, imudatarate);
+    VehSpeedFileLoader vehspeedfile(vehspeedpath);
 
     // 构造GIEngine
     // Construct GIEngine
@@ -137,6 +140,11 @@ int main(int argc, char *argv[]) {
         imu_cur = imufile.next();
     } while (imu_cur.time < starttime);
 
+    Veh_Speed veh_speed;
+    do {
+        veh_speed = vehspeedfile.next();
+    } while (veh_speed.time < starttime);
+
     GNSS gnss;
     do {
         gnss = gnssfile.next();
@@ -145,6 +153,8 @@ int main(int argc, char *argv[]) {
     // 添加IMU数据到GIEngine中，补偿IMU误差
     // add imudata to GIEngine and compensate IMU error
     giengine.addImuData(imu_cur, true);
+
+    giengine.addVehData(veh_speed);
 
     // 添加GNSS数据到GIEngine
     // add gnssdata to GIEngine
@@ -160,13 +170,32 @@ int main(int argc, char *argv[]) {
     // used to display processing progress
     int percent = 0, lastpercent = 0;
     double interval = endtime - starttime;
+    static int main_num = 0;
+    std::cout << "main_num: " << main_num++ << std::endl;
 
     while (true) {
+        static int while_num = 0;
+        std::cout << " " << std::endl;
+        std::cout << "while_num: " << while_num++ << std::endl;
+        std::cout << std::fixed << std::setprecision(5) << __FILE__ << __LINE__
+        << "imu_cur.time: " << imu_cur.time << std::endl;
+        std::cout << std::fixed << std::setprecision(5) << __FILE__ << __LINE__
+         << "gnss.time: " << gnss.time << std::endl;
+        std::cout << std::fixed << std::setprecision(5) << __FILE__ << __LINE__
+        << "veh_speed.time: " << veh_speed.time << std::endl;
+        std::cout << __FILE__ << __LINE__ << "spd_gps: " << gnss.speed_gps << std::endl;
+        std::cout << __FILE__ << __LINE__ << "speed_veh: " << veh_speed.speed_veh << std::endl;
         // 当前IMU状态时间新于GNSS时间时，读取并添加新的GNSS数据到GIEngine
         // load new gnssdata when current state time is newer than GNSS time and add it to GIEngine
         if (gnss.time < imu_cur.time && !gnssfile.isEof()) {
             gnss = gnssfile.next();
             giengine.addGnssData(gnss);
+        }
+
+        if (veh_speed.time < imu_cur.time && !vehspeedfile.isEof()) {
+            veh_speed = vehspeedfile.next();
+            std::cout << __FILE__ << __LINE__ << "veh_speed.speed_veh: " << veh_speed.speed_veh << std::endl;
+            giengine.addVehData(veh_speed);
         }
 
         // 读取并添加新的IMU数据到GIEngine

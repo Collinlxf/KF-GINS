@@ -30,7 +30,7 @@ class ImuFileLoader : public FileLoader {
 
 public:
     ImuFileLoader() = delete;
-    ImuFileLoader(const string &filename, int columns, int rate = 200) {
+    ImuFileLoader(const string &filename, int columns, int rate = 50) {
         open(filename, columns, FileLoader::TEXT);
 
         // 根据采样率计算时间间隔

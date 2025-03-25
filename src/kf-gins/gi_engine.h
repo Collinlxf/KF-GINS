@@ -56,6 +56,11 @@ public:
         }
     }
 
+    void addVehData(const Veh_Speed &veh_speed) {
+
+        veh_speed_ = veh_speed;
+    }
+
     /**
      * @brief 添加新的GNSS数据
      *        add new gnssdata
@@ -241,6 +246,7 @@ private:
     // raw imudata and gnssdata
     IMU imupre_;
     IMU imucur_;
+    Veh_Speed veh_speed_;
     GNSS gnssdata_;
 
     // IMU状态（位置、速度、姿态和IMU误差）
