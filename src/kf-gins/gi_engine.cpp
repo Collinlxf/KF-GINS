@@ -10,6 +10,9 @@ GIEngine::GIEngine(GINSOptions &options) {
     options_.print_options();
     timestamp_ = 0;
 
+    // 初始化轮速计数据结构
+    veh_speed_ = {0.0, 0.0};
+
     /*
     位置误差 (P_ID) - 3维
     速度误差 (V_ID) - 3维
@@ -112,71 +115,80 @@ void GIEngine::newImuProcess() {
     // 当前IMU时间作为系统当前状态时间,
     // set current IMU time as the current state time
     timestamp_ = imucur_.time;
-
-    // 如果GNSS有效，则将更新时间设置为GNSS时间
-    // set update time as the gnss time if gnssdata is valid
-    double updatetime = gnssdata_.isvalid ? gnssdata_.time : -1;
-    // double updatetime = gnssdata_.sat_num > 8 ? gnssdata_.time : -1;
-
     // 判断是否需要进行GNSS更新
-    // determine if we should do GNSS update
-    int res = isToUpdate(imupre_.time, imucur_.time, updatetime);
+    bool gnss_valid =  gnssdata_.sat_num > 8;
 
-    if (res == 0) {
-        // 只传播导航状态
-        // only propagate navigation state
-        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
-        double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
-        // pvacur_.att.euler[2] = gnss_yaw;
-        // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
-        insPropagation(imupre_, imucur_);
-        // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
-        // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
-        // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
-    } else if (res == 1) {
-        // GNSS数据靠近上一历元，先对上一历元进行GNSS更新
-        // gnssdata is near to the previous imudata, we should firstly do gnss update
-        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
-        // gnssUpdate进行 GNSS 量测更新
-        gnssUpdate(gnssdata_);
-        // stateFeedback进行系统状态反馈
+    if (false == gnss_valid) {
+        std::cout << __FILE__ << __LINE__ << "gnss_not_good"  << std::endl;
+        wheelSpeedUpdate();
         stateFeedback();
-
         pvapre_ = pvacur_;
         insPropagation(imupre_, imucur_);
-    } else if (res == 2) {
-        // GNSS数据靠近当前历元，先对当前IMU进行状态传播
-        // gnssdata is near current imudata, we should firstly propagate navigation state
-        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
-        double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
-        // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
-        // pvacur_.att.euler[2] = gnss_yaw;
-        insPropagation(imupre_, imucur_);
-        // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
-        // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
-        // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
-        gnssUpdate(gnssdata_);
-        stateFeedback();
     } else {
-        // GNSS数据在两个IMU数据之间(不靠近任何一个), 将当前IMU内插到整秒时刻
-        // gnssdata is between the two imudata, we interpolate current imudata to gnss time
-        std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
-        IMU midimu;
-        imuInterpolate(imupre_, imucur_, updatetime, midimu);
+            // 如果GNSS有效，则将更新时间设置为GNSS时间
+        // set update time as the gnss time if gnssdata is valid
+        double updatetime = gnssdata_.isvalid ? gnssdata_.time : -1;
 
-        // 对前一半IMU进行状态传播
-        // propagate navigation state for the first half imudata
-        insPropagation(imupre_, midimu);
+        // 判断是否需要进行GNSS更新
+        // determine if we should do GNSS update
+        int res = isToUpdate(imupre_.time, imucur_.time, updatetime);
 
-        // 整秒时刻进行GNSS更新，并反馈系统状态
-        // do GNSS position update at the whole second and feedback system states
-        gnssUpdate(gnssdata_);
-        stateFeedback();
+        if (res == 0) {
+            // 只传播导航状态
+            // only propagate navigation state
+            std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
+            double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
+            // pvacur_.att.euler[2] = gnss_yaw;
+            // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
+            insPropagation(imupre_, imucur_);
+            // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
+            // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
+            // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
+        } else if (res == 1) {
+            // GNSS数据靠近上一历元，先对上一历元进行GNSS更新
+            // gnssdata is near to the previous imudata, we should firstly do gnss update
+            std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
+            // gnssUpdate进行 GNSS 量测更新
+            gnssUpdate(gnssdata_);
+            // stateFeedback进行系统状态反馈
+            stateFeedback();
 
-        // 对后一半IMU进行状态传播
-        // propagate navigation state for the second half imudata
-        pvapre_ = pvacur_;
-        insPropagation(midimu, imucur_);
+            pvapre_ = pvacur_;
+            insPropagation(imupre_, imucur_);
+        } else if (res == 2) {
+            // GNSS数据靠近当前历元，先对当前IMU进行状态传播
+            // gnssdata is near current imudata, we should firstly propagate navigation state
+            std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
+            double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
+            // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
+            // pvacur_.att.euler[2] = gnss_yaw;
+            insPropagation(imupre_, imucur_);
+            // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
+            // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
+            // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
+            gnssUpdate(gnssdata_);
+            stateFeedback();
+        } else {
+            // GNSS数据在两个IMU数据之间(不靠近任何一个), 将当前IMU内插到整秒时刻
+            // gnssdata is between the two imudata, we interpolate current imudata to gnss time
+            std::cout << __FILE__ << __LINE__ << "res: " << res << std::endl;
+            IMU midimu;
+            imuInterpolate(imupre_, imucur_, updatetime, midimu);
+
+            // 对前一半IMU进行状态传播
+            // propagate navigation state for the first half imudata
+            insPropagation(imupre_, midimu);
+
+            // 整秒时刻进行GNSS更新，并反馈系统状态
+            // do GNSS position update at the whole second and feedback system states
+            gnssUpdate(gnssdata_);
+            stateFeedback();
+
+            // 对后一半IMU进行状态传播
+            // propagate navigation state for the second half imudata
+            pvapre_ = pvacur_;
+            insPropagation(midimu, imucur_);
+        }
     }
 
     // 检查协方差矩阵对角线元素
@@ -187,6 +199,33 @@ void GIEngine::newImuProcess() {
     // update system state and imudata at the previous epoch
     pvapre_ = pvacur_;
     imupre_ = imucur_;
+}
+
+void GIEngine::wheelSpeedUpdate() {
+    // 利用轮速计数据进行速度更新
+    double wheel_speed = veh_speed_.speed_veh;
+    Eigen::Vector3d wheel_vel = {wheel_speed, 0, 0};
+
+    // 计算轮速计速度测量新息
+    Eigen::MatrixXd dz = wheel_vel - pvacur_.vel;
+
+    // 构造轮速计速度观测矩阵
+    Eigen::MatrixXd H_wheel;
+    H_wheel.resize(3, Cov_.rows());
+    H_wheel.setZero();
+    H_wheel.block(0, V_ID, 3, 3) = Eigen::Matrix3d::Identity();
+
+    // 速度观测噪声阵
+    Eigen::MatrixXd R_wheel;
+    // R_wheel = Eigen::Matrix3d::Identity() * options_.wheel_noise;
+    R_wheel = Eigen::Matrix3d::Identity() * 0.1;
+
+    // EKF更新协方差和误差状态
+    EKFUpdate(dz, H_wheel, R_wheel);
+}
+
+void GIEngine::updateWheelSpeed(const Veh_Speed &veh_speed) {
+    veh_speed_ = veh_speed;
 }
 
 void GIEngine::imuCompensate(IMU &imu) {

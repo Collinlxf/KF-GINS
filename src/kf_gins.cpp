@@ -185,6 +185,7 @@ int main(int argc, char *argv[]) {
         << "veh_speed.time: " << veh_speed.time << std::endl;
         std::cout << __FILE__ << __LINE__ << "spd_gps: " << gnss.speed_gps << std::endl;
         std::cout << __FILE__ << __LINE__ << "speed_veh: " << veh_speed.speed_veh << std::endl;
+        std::cout << __FILE__ << __LINE__ << "sat_num: " << int(gnss.sat_num) << std::endl;
         // 当前IMU状态时间新于GNSS时间时，读取并添加新的GNSS数据到GIEngine
         // load new gnssdata when current state time is newer than GNSS time and add it to GIEngine
         if (gnss.time < imu_cur.time && !gnssfile.isEof()) {
@@ -201,7 +202,7 @@ int main(int argc, char *argv[]) {
         // 读取并添加新的IMU数据到GIEngine
         // load new imudata and add it to GIEngine
         imu_cur = imufile.next();
-        std::cout << __FILE__ << __LINE__ << "imu_cur.time: " << imu_cur.time << std::endl;
+        // std::cout << __FILE__ << __LINE__ << "imu_cur.time: " << imu_cur.time << std::endl;
         if (imu_cur.time > endtime || imufile.isEof()) {
             break;
         }

@@ -10,8 +10,8 @@ print(f"列名: {df.columns.tolist()}")
 # 确认数据框有足够的列
 if df.shape[1] >= 4:
     # 提取第三列和第四列数据
-    lat_lon_df = df.iloc[:, [2, 3]]
-    lat_lon_df.columns = ['lat', 'lon']
+    lat_lon_df = df.iloc[:, [1,2,3]]
+    lat_lon_df.columns = ['time_stamp','lat', 'lon']
 
     # 将提取的数据保存到新的 csv 文件中
     lat_lon_df.to_csv('lat_lon.csv', index=False)

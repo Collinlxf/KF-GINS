@@ -80,6 +80,7 @@ public:
      *        process new imudata
      * */
     void newImuProcess();
+    void updateWheelSpeed(const Veh_Speed &veh_speed);
 
     /**
      * @brief 内插增量形式的IMU数据到指定时刻
@@ -190,6 +191,7 @@ private:
      * @param [in,out] gnssdata
      * */
     void gnssUpdate(GNSS &gnssdata);
+    void wheelSpeedUpdate();
 
     /**
      * @brief Kalman 预测,
