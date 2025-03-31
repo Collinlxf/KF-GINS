@@ -31,9 +31,14 @@ imudatarate: 50
 # starttime: 456300
 # starttime: 461674
 # endtime: 461988
-starttime: 637808
-endtime: 641156
-# endtime: 645980
+starttime: 637808.49
+# endtime: 637814
+endtime: 644053
+
+# 隧道前一段
+# starttime: 641142
+# endtime: 643980
+
 # endtime: -1
 
 # 初始状态
@@ -44,15 +49,24 @@ endtime: 641156
 # initpos: [ 30.300460, 121.298345, 21.700000 ]
 initpos: [ 29.8761666667, 121.5501583333, 26.00 ]
 
+# 隧道前起始位置
+# initpos: [ 30.04681, 121.2549916667, 48.3]
+
 # 初始速度, 北向速度, 东向速度, 垂向速度
 # initial velocity, speed in the directions of north, east and down. [m/s, m/s, m/s]
 # initvel: [ 12.23, 5.50, 0.0 ]
 initvel: [ 3.5065163754530246, -2.9927316800341095, 0.0 ]
 
+# 隧道前初始速度
+# initvel: [ 17.31891, 17.31891, 0.0 ]
+
 # 初始姿态, 欧拉角(ZYX旋转顺序), 横滚, 俯仰, 航向
 # initial attitude, euler angle(ZYX rotation), roll, pitch, yaw [deg, deg, deg]
 # initatt: [ 0.85421502, -2.03480295, 185.70235133 ]
-initatt: [ 0, 0, 319.52 ]
+initatt: [ 0, 0, 319.52]
+
+# 隧道前姿态
+# initatt: [ 0, 0, 3.43 ]
 # 初始IMU零偏和比例因子, IMU的三个轴(前、右、下)
 # initial IMU bias and scale error, three axes of the imu (forward, right and down)
 initgyrbias: [ 0, 0, 0 ]    # [deg/h]

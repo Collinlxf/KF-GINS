@@ -192,6 +192,8 @@ private:
      * */
     void gnssUpdate(GNSS &gnssdata);
     void wheelSpeedUpdate();
+    void speedUpdate(const double &measured_speed);
+    Eigen::Vector3d speedErrorFeedback(const double &measured_speed);
 
     /**
      * @brief Kalman 预测,
@@ -250,6 +252,7 @@ private:
     IMU imucur_;
     Veh_Speed veh_speed_;
     GNSS gnssdata_;
+    bool gnss_valid_;
 
     // IMU状态（位置、速度、姿态和IMU误差）
     // imu state (position, velocity, attitude and imu error)

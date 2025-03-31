@@ -1,7 +1,7 @@
 import math
 
-speed = 6.38  # m/s
-heading = 337.33 * math.pi / 180.0  # rad
+speed = 4.61 # m/s
+heading = 319.52 * math.pi / 180.0  # rad
 
 vn = speed * math.cos(heading)
 ve = speed * math.sin(heading)
