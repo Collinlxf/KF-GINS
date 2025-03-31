@@ -192,8 +192,6 @@ private:
      * */
     void gnssUpdate(GNSS &gnssdata);
     void wheelSpeedUpdate();
-    void speedUpdate(const double &measured_speed);
-    Eigen::Vector3d speedErrorFeedback(const double &measured_speed);
 
     /**
      * @brief Kalman 预测,

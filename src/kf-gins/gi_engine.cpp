@@ -116,8 +116,7 @@ void GIEngine::newImuProcess() {
     // set current IMU time as the current state time
     timestamp_ = imucur_.time;
     // 判断是否需要进行GNSS更新
-    gnss_valid_ = true;
-    gnss_valid_ =  gnssdata_.sat_num > 8;
+    bool gnss_valid =  gnssdata_.sat_num > 8;
 
     if (false == true) {
         std::cout << __FILE__ << __LINE__ << "gnss_not_good"  << std::endl;
@@ -133,7 +132,6 @@ void GIEngine::newImuProcess() {
         // 判断是否需要进行GNSS更新
         // determine if we should do GNSS update
         int res = isToUpdate(imupre_.time, imucur_.time, updatetime);
-        // res = 0;
 
         if (res == 0) {
             // 只传播导航状态
@@ -146,10 +144,6 @@ void GIEngine::newImuProcess() {
             // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
             // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
             // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
-            if (false == gnss_valid_) {
-                speedUpdate(veh_speed_.speed_veh);
-                stateFeedback();
-            }
         } else if (res == 1) {
             // GNSS数据靠近上一历元，先对上一历元进行GNSS更新
             // gnssdata is near to the previous imudata, we should firstly do gnss update
@@ -161,10 +155,6 @@ void GIEngine::newImuProcess() {
 
             pvapre_ = pvacur_;
             insPropagation(imupre_, imucur_);
-            if (false == gnss_valid_) {
-                speedUpdate(veh_speed_.speed_veh);
-                stateFeedback();
-            }
         } else if (res == 2) {
             // GNSS数据靠近当前历元，先对当前IMU进行状态传播
             // gnssdata is near current imudata, we should firstly propagate navigation state
@@ -198,10 +188,6 @@ void GIEngine::newImuProcess() {
             // propagate navigation state for the second half imudata
             pvapre_ = pvacur_;
             insPropagation(midimu, imucur_);
-            if (false == gnss_valid_) {
-                speedUpdate(veh_speed_.speed_veh);
-                stateFeedback();
-            }
         }
     }
 
@@ -248,8 +234,6 @@ void GIEngine::imuCompensate(IMU &imu) {
     // compensate the imu bias
     imu.dtheta -= imuerror_.gyrbias * imu.dt;
     imu.dvel -= imuerror_.accbias * imu.dt;
-    std::cout << __FILE__ << __LINE__ << "imu.dtheta: " << imu.dtheta << std::endl;
-    std::cout << __FILE__ << __LINE__ << "imu.dvel: " << imu.dvel << std::endl;
 
     // 补偿IMU比例因子
     // compensate the imu scale
@@ -259,8 +243,6 @@ void GIEngine::imuCompensate(IMU &imu) {
     // cwiseProduct：逐元素乘法。cwiseInverse：逐元素取倒数。
     imu.dtheta = imu.dtheta.cwiseProduct(gyrscale.cwiseInverse());
     imu.dvel   = imu.dvel.cwiseProduct(accscale.cwiseInverse());
-    std::cout << __FILE__ << __LINE__ << "imu.dtheta: " << imu.dtheta << std::endl;
-    std::cout << __FILE__ << __LINE__ << "imu.dvel: " << imu.dvel << std::endl;
 }
 
 void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
@@ -643,34 +625,13 @@ void GIEngine::stateFeedback() {
     vectemp = dx_.block(V_ID, 0, 3, 1);
     pvacur_.vel -= vectemp;
 
-    Eigen::Vector3d speed_error(0, 0, 0);
-    if (false == gnss_valid_) {  // 如果 speedUpdate 参与，融合轮速误差
-        speed_error = speedErrorFeedback(veh_speed_.speed_veh);
-    }
-    pvacur_.vel -= 0.2 * vectemp + 0.8 * speed_error;
-
     // 姿态误差反馈
-    // **航向角误差反馈**
-    Eigen::Vector3d dtheta_ned;
-    dtheta_ned.x() = imucur_.dtheta.y();  // Right -> North
-    dtheta_ned.y() = imucur_.dtheta.x();  // Forward -> East
-    dtheta_ned.z() = -imucur_.dtheta.z();   // Down -> Up
-
-    double delta_heading_imu = dtheta_ned.z();  // IMU Z 轴角速度用于航向
-    double delta_heading_wheel = veh_speed_.speed_veh * dtheta_ned.z() / 9.81;
-
-    double heading_error = delta_heading_wheel - delta_heading_imu;
-    if (false == gnss_valid_) {
-        pvacur_.att.euler.z() += 0.8 * heading_error;
-    }
-
     // attitude error feedback
     vectemp                = dx_.block(PHI_ID, 0, 3, 1);
     Eigen::Quaterniond qpn = Rotation::rotvec2quaternion(vectemp);
     pvacur_.att.qbn        = qpn * pvacur_.att.qbn;
     pvacur_.att.cbn        = Rotation::quaternion2matrix(pvacur_.att.qbn);
     pvacur_.att.euler      = Rotation::matrix2euler(pvacur_.att.cbn);
-
 
     // IMU零偏误差反馈
     // IMU bias error feedback
@@ -750,46 +711,4 @@ void GIEngine::handleZeroSpeedCorrection(const IMU &imu) {
     // 更新当前状态
     pvacur_.vel.setZero();  // 速度置零
     pvacur_.pos = pvapre_.pos;  // 位置保持前一状态
-}
-
-void GIEngine::speedUpdate(const double &measured_speed) {
-    // 计算当前INS速度在车体坐标系下的前向速度
-    Eigen::Vector3d vel_body = pvacur_.att.cbn.transpose() * pvacur_.vel;
-    double ins_speed = vel_body(0);     // 取车体前向速度
-
-    // 计算速度误差
-    Eigen::MatrixXd dz(1, 1);
-    dz(0, 0) = measured_speed - ins_speed;
-
-    // 观测矩阵 H_speed
-    Eigen::MatrixXd H_speed(1, Cov_.rows());
-    H_speed.setZero();
-    H_speed(0, V_ID) = pvacur_.att.cbn(0, 0);  // 只影响X方向速度
-
-    // 观测噪声协方差矩阵 R_speed
-    Eigen::MatrixXd R_speed(1, 1);
-    R_speed(0, 0) = 0.5 * 0.5;  // 设定车速观测噪声，单位 m²/s²，可根据实际情况调整
-
-    // 使用EKF进行状态更新
-    EKFUpdate(dz, H_speed, R_speed);
-}
-
-Eigen::Vector3d GIEngine::speedErrorFeedback(const double &measured_speed) {
-    Eigen::Vector3d speed_error(0, 0, 0);
-
-    // 计算车轮速度在导航坐标系下的速度误差
-    // double wheel_speed = getWheelSpeed();
-    double vx_body = measured_speed;
-    double vy_body = 0.0;
-    double vz_body = 0.0;
-
-    Eigen::Vector3d V_body(vx_body, vy_body, vz_body);
-    Eigen::Vector3d V_nav = pvacur_.att.cbn * V_body;
-    //  Eigen::Vector3d V_nav;
-
-    // 计算误差
-    speed_error = pvacur_.vel - V_nav;
-    std::cout << __FILE__ << __LINE__ << "speed_error: " << speed_error << std::endl;
-
-    return speed_error;
 }
