@@ -134,6 +134,10 @@ void GIEngine::newImuProcess() {
         // pvacur_.att.euler[2] = gnss_yaw;
         // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
         insPropagation(imupre_, imucur_);
+        if (false == gnss_valid_) {
+            ODONHCSpeedUpdate();
+        }
+        // ODONHCSpeedUpdate();
         // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
         // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
         // std::cout << __FILE__ << __LINE__ << "pvacur_.yaw: " << pvacur_.att.euler[2] << std::endl;
@@ -145,6 +149,7 @@ void GIEngine::newImuProcess() {
         // gnssUpdate(gnssdata_);
         // // stateFeedback进行系统状态反馈
         // stateFeedback();
+        // ODONHCSpeedUpdate();
 
         pvapre_ = pvacur_;
         insPropagation(imupre_, imucur_);
@@ -155,6 +160,7 @@ void GIEngine::newImuProcess() {
         double gnss_yaw = Angle::deg2rad(gnssdata_.yaw);
         // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
         // pvacur_.att.euler[2] = gnss_yaw;
+        // ODONHCSpeedUpdate();
         insPropagation(imupre_, imucur_);
         // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
         // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
@@ -176,6 +182,7 @@ void GIEngine::newImuProcess() {
         // do GNSS position update at the whole second and feedback system states
         // gnssUpdate(gnssdata_);
         // stateFeedback();
+        // ODONHCSpeedUpdate();
 
         // 对后一半IMU进行状态传播
         // propagate navigation state for the second half imudata
@@ -185,7 +192,9 @@ void GIEngine::newImuProcess() {
 
     if (true == gnss_valid_) {
         gnssUpdate(gnssdata_);
+        // dx_.setZero();
         stateFeedback();
+        dx_.setZero();
     }
 
     // 检查协方差矩阵对角线元素
@@ -518,6 +527,9 @@ void GIEngine::gnssUpdate(GNSS &gnssdata) {
     // 构造GNSS位置观测矩阵
     // construct GNSS position measurement matrix
     Eigen::MatrixXd H_gnsspos;
+    /*
+    观测矩阵 H 的列数需与协方差矩阵 Cov_ 的行数一致。这是因为矩阵乘法 H * Cov_ 要求 H 的列数等于 Cov_ 的行数。
+    */
     H_gnsspos.resize(3, Cov_.rows());
     H_gnsspos.setZero();
     H_gnsspos.block(0, P_ID, 3, 3)   = Eigen::Matrix3d::Identity();
@@ -644,9 +656,20 @@ void GIEngine::stateFeedback() {
     vectemp = dx_.block(SA_ID, 0, 3, 1);
     imuerror_.accscale += vectemp;
 
+    /* 里程计比例因子 */
+    // imuerror_.odoscale += dx_.block(OS_ID, 0, 1, 1)(0);
+
     // 误差状态反馈到系统状态后,将误差状态清零
     // set 'dx' to zero after feedback error state to system state
+    // dx_.setZero();
+}
+
+void GIEngine::ODONHCUpdateFeedback(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixXd &R) {
     dx_.setZero();
+    EKFUpdate(dz, H, R);
+    stateFeedback();
+    dx_.setZero();
+    return;
 }
 
 NavState GIEngine::getNavState() {
@@ -708,4 +731,90 @@ void GIEngine::handleZeroSpeedCorrection(const IMU &imu) {
     // 更新当前状态
     pvacur_.vel.setZero();  // 速度置零
     pvacur_.pos = pvapre_.pos;  // 位置保持前一状态
+}
+
+bool GIEngine::ODONHCSpeedUpdate() {
+    // 1. 里程计更新准备：计算 odovel
+    // if (true == options_.lcconfig.id_use_odo || true == options_.lcconfig.is_use_zupt) {
+    //     // if (lcdata->imudata.odosechalfnum == 0) {
+    //     if (0 == 0) {
+    //         imucur_.odovel = lcdata->imudata.odofirhalfvel;
+    //     // } else if (lcdata->imudata.odofirhalfnum == 0) {
+    //     } else if (1 == 0) {
+    //         lcdata->imudata.odovel = lcdata->imudata.odosechalfvel;
+    //     } else {
+    //         lcdata->imudata.odovel = 1.5 * lcdata->imudata.odosechalfvel / lcdata->imudata.odosechalfnum -
+    //                                  0.5 * lcdata->imudata.odofirhalfvel / lcdata->imudata.odofirhalfnum;
+    //     }
+    //     // 清零累积变量
+    //     lcdata->imudata.odosechalfvel = 0;
+    //     lcdata->imudata.odosechalfnum = 0;
+    //     lcdata->imudata.odofirhalfvel = 0;
+    //     lcdata->imudata.odofirhalfnum = 0;
+    // }
+    imucur_.odovel[0] = veh_speed_.speed_veh;
+    std::cout << __FILE__ << __LINE__ << ", " << "imucur_.odovel: " << imucur_.odovel << std::endl;
+    // 2. 零速修正判断
+    double zuptquality = 1.0;
+    if (true == options_.lcconfig.is_use_zupt) {
+        if (true == options_.lcconfig.is_use_zupt) {
+            // 里程计零速判断：若 |odovel| < 0.0001，则认为处于零速状态
+            lcdata_.is_zupt = (std::abs(imucur_.odovel[0]) < 0.0001);
+        } else {
+            // 这里可以调用更复杂的零速检测算法，简化处理为 false
+            lcdata_.is_zupt = false;
+        }
+    }
+
+    // 3. 构造观测矩阵、测量值及噪声矩阵（使用 Eigen）
+    Eigen::MatrixXd dz, H, R;
+    // int stateDim = lcdata->rank;  // 状态向量维数
+    int stateDim = 21;  // 状态向量维数
+
+    // if (true == lcdata_.is_zupt) {
+    if (true == false) {
+        // 如果处于零速状态，则构造 3 维速度观测
+        dz.resize(3, 1);
+        // 直接使用当前测量到的速度
+        dz = pvacur_.vel;  // 3×1向量
+
+        // 构造观测矩阵 H：假设状态中速度误差位于 V_ID 开始的 3 个元素
+        H = Eigen::MatrixXd::Zero(3, stateDim);
+        H.block(0, V_ID, 3, 3) = Eigen::Matrix3d::Identity();
+
+        // 构造观测噪声矩阵 R：3×3 对角矩阵，噪声方差 = obsstd[2]^2 * zuptquality
+        // double noise = lcconfig->obsstd(2) * lcconfig->obsstd(2) * zuptquality;
+        double noise = 0.1 * 0.1 * zuptquality;
+        R = noise * Eigen::MatrixXd::Identity(3, 3);
+    // } else if (lcconfig->isusenhc) {
+    } else if (1) {
+        // NHC 速度观测：在此简化为只观测 x 轴速度误差
+        dz.resize(1, 1);
+        Eigen::Vector3d wie_n;
+        wie_n << WGS84_WIE * cos(pvapre_.pos[0]), 0, -WGS84_WIE * sin(pvapre_.pos[0]);
+        // 将自车坐标系前向速度转换到导航坐标系
+        Eigen::Vector3d vel_car_to_nav = pvapre_.att.cbn * imucur_.odovel;
+        // dz(0, 0) = pvacur_.vel(0) -  (vel_car_to_nav(0) + wie_n(0) * imucur_.dt / 2);
+        dz(0, 0) = pvapre_.vel(0) -  (vel_car_to_nav(0) + wie_n(0) * 0.02 / 2);
+        std::cout << __FILE__ << __LINE__ << ", " << "pvacur_.vel(0): " << pvacur_.vel(0) << std::endl;
+        std::cout << __FILE__ << __LINE__ << ", " << "vel_car_to_nav(0): " << vel_car_to_nav(0) << std::endl;
+        std::cout << __FILE__ << __LINE__ << ", " << "wie_n(0): " << wie_n(0) << std::endl;
+        std::cout << __FILE__ << __LINE__ << ", " << "dz: " << dz.transpose() << std::endl;
+
+        H = Eigen::MatrixXd::Zero(1, stateDim);
+        // 观测矩阵 H 在速度状态中 x 方向的系数置 1（假设 x 轴速度对应状态向量中 V_ID 下标处）
+        H(0, V_ID) = 1.0;
+
+        // double noise = lcconfig->obsstd(0) * lcconfig->obsstd(0);
+        double noise = 0.1 * 0.1;
+        R = noise * Eigen::MatrixXd::Identity(1, 1);
+    } else {
+        // 如果既不零速也不使用 NHC，则不做更新
+        return true;
+    }
+
+    // 4. 调用 EKF 更新函数进行协方差和状态更新
+    ODONHCUpdateFeedback(dz, H, R);
+
+    return true;
 }

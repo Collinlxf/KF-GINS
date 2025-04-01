@@ -54,8 +54,12 @@ typedef struct IMU {
     Vector3d dtheta;
     Vector3d dvel;
 
-    double odovel;
+    Vector3d odovel;
 } IMU;
+
+typedef struct LcData {
+    bool is_zupt;
+} LcData;
 
 typedef struct Pose {
     Matrix3d R;

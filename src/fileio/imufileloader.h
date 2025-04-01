@@ -61,9 +61,9 @@ public:
 
         // 增量形式
         // 如果数据大于7列，第八列赋值给odovel（里程增量）
-        if (columns_ > 7) {
-            imu_.odovel = data_[7] * imu_.dt;
-        }
+        // if (columns_ > 7) {
+        //     imu_.odovel = data_[7] * imu_.dt;
+        // }
 
         return imu_;
     }

@@ -395,6 +395,42 @@ bool loadConfig(YAML::Node &config, GINSOptions &options) {
     }
     options.antlever = Eigen::Vector3d(vec1.data());
 
+    try {
+        vec1 = config["zuptthr"].as<std::vector<double>>();
+    } catch (YAML::Exception &exception) {
+        std::cout << "Failed when loading configuration. Please check zuptthr!" << std::endl;
+        return false;
+    }
+    for (int i = 0; i < 2; i++) {
+        options.lcconfig.zuptthr[i] = vec1[i];
+    }
+
+    bool bool_tmep;
+    try {
+        bool_tmep = config["isuseodozupt"].as<bool>();
+        options.lcconfig.is_use_zupt = bool_tmep;
+    } catch (YAML::Exception &exception) {
+        std::cout << "Failed when loading configuration. Please check isuseodozupt!" << std::endl;
+        return false;
+    }
+
+    // bool rate_tmep;
+    // try {
+    //     rate_tmep = config["imudatarate"].as<bool>();
+    //     options.lcconfig.imudatarate = rate_tmep;
+    // } catch (YAML::Exception &exception) {
+    //     std::cout << "Failed when loading configuration. Please check imudatarate!" << std::endl;
+    //     return false;
+    // }
+    // double dt_tmep;
+    // try {
+    //     dt_tmep = config["imudatadt"].as<double>();
+    //     options.lcconfig.imudatadt = dt_tmep;
+    // } catch (YAML::Exception &exception) {
+    //     std::cout << "Failed when loading configuration. Please check imudatadt!" << std::endl;
+    //     return false;
+    // }
+
     return true;
 }
 

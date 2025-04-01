@@ -215,6 +215,9 @@ private:
      * */
     void EKFUpdate(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixXd &R);
 
+    void ODONHCUpdateFeedback(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixXd &R);
+    bool ODONHCSpeedUpdate();
+
     /**
      * @brief 反馈误差状态到当前状态
      *        feedback error state to the current state
@@ -251,6 +254,7 @@ private:
     Veh_Speed veh_speed_;
     GNSS gnssdata_;
     bool gnss_valid_;
+    LcData lcdata_;
 
     // IMU状态（位置、速度、姿态和IMU误差）
     // imu state (position, velocity, attitude and imu error)
@@ -269,7 +273,7 @@ private:
 
     // 状态ID和噪声ID
     // state ID and noise ID
-    enum StateID { P_ID = 0, V_ID = 3, PHI_ID = 6, BG_ID = 9, BA_ID = 12, SG_ID = 15, SA_ID = 18 };
+    enum StateID { P_ID = 0, V_ID = 3, PHI_ID = 6, BG_ID = 9, BA_ID = 12, SG_ID = 15, SA_ID = 18};
     enum NoiseID { VRW_ID = 0, ARW_ID = 3, BGSTD_ID = 6, BASTD_ID = 9, SGSTD_ID = 12, SASTD_ID = 15 };
 };
 

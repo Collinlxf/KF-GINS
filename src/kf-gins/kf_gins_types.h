@@ -49,6 +49,7 @@ typedef struct ImuError {
     Eigen::Vector3d accbias;
     Eigen::Vector3d gyrscale;
     Eigen::Vector3d accscale;
+    double odoscale;
 } ImuError;
 
 typedef struct NavState {
@@ -76,6 +77,17 @@ typedef struct ImuNoise {
     double corr_time;
 } ImuNoise;
 
+typedef struct LcConfig {
+
+    double   imudatadt;
+    int      imudatarate;
+
+    /* 零速标准差阈值 */
+    double zuptthr[2];
+    bool   is_use_zupt;
+    bool id_use_odo;
+} LcConfig;
+
 typedef struct GINSOptions {
 
     // 初始状态和状态标准差
@@ -86,6 +98,8 @@ typedef struct GINSOptions {
     // IMU噪声参数
     // imu noise parameters
     ImuNoise imunoise;
+
+    LcConfig lcconfig;
 
     // 安装参数
     // install parameters
