@@ -209,4 +209,11 @@ void INSMech::attUpdate(const PVA &pvapre, PVA &pvacur, const IMU &imupre, const
     pvacur.att.qbn   = (qnn * pvapre.att.qbn * qbb).normalized();
     pvacur.att.cbn   = Rotation::quaternion2matrix(pvacur.att.qbn);
     pvacur.att.euler = Rotation::matrix2euler(pvacur.att.cbn);
+    Eigen::Vector3d ibwb;/* b系下的陀螺仪观测量 */
+    ibwb = imucur.dtheta/imucur.dt;
+    Eigen::Vector3d temp22;
+    temp22 = wie_n + wen_n;
+    Eigen::Vector3d temp11;
+    temp11 = pvacur.att.cbn *ibwb;
+    pvacur.nbwn = temp11 - temp22;
 }

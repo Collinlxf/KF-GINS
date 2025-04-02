@@ -117,6 +117,8 @@ void GIEngine::newImuProcess() {
     timestamp_ = imucur_.time;
     // 判断是否需要进行GNSS更新
     gnss_valid_ =  gnssdata_.sat_num > 5;
+    std::cout << __FILE__ << __LINE__ << "sat_num: " << int(gnssdata_.sat_num) << std::endl;
+    std::cout << __FILE__ << __LINE__ << "gnss_valid_: " << gnss_valid_ << std::endl;
 
     // 如果GNSS有效，则将更新时间设置为GNSS时间
     // set update time as the gnss time if gnssdata is valid
@@ -125,6 +127,7 @@ void GIEngine::newImuProcess() {
     // 判断是否需要进行GNSS更新
     // determine if we should do GNSS update
     int res = isToUpdate(imupre_.time, imucur_.time, updatetime);
+    // res = 0;
 
     if (res == 0) {
         // 只传播导航状态
@@ -134,9 +137,31 @@ void GIEngine::newImuProcess() {
         // pvacur_.att.euler[2] = gnss_yaw;
         // std::cout << __FILE__ << __LINE__ << "gnss_yaw: " << gnss_yaw << std::endl;
         insPropagation(imupre_, imucur_);
-        if (false == gnss_valid_) {
-            ODONHCSpeedUpdate();
+        // bool odd_valid = true;
+        // if ((false == gnss_valid_ || (imucur_.time  > 641159.49100 && imucur_.time  < 641218.5)
+        //     && (odd_valid == true && veh_speed_.time - imucur_.time < 0.03))) {
+        //     std::cout << __FILE__ << __LINE__ << "ODONHCSpeedUpdate: "  << std::endl;
+        //     // ODONHCSpeedUpdate();
+        //     lcSpeedUpdate(pvacur_, veh_speed_.speed_veh);
+        //     gnss_valid_ = false;
+        //     odd_valid = false;
+        // }
+
+        bool is_veh_update = std::trunc(veh_speed_.time) != std::trunc(veh_speed_pre_.time);
+        if (true == is_veh_update) {
+            std::cout << __FILE__ << __LINE__ << "veh_speed_.time: " << veh_speed_.time << std::endl;
+            std::cout << __FILE__ << __LINE__ << "veh_speed_pre_.time: " << veh_speed_pre_.time << std::endl;
         }
+        if ((false == gnss_valid_ || (imucur_.time  > 641159.49100 && imucur_.time  < 641218.5)) && is_veh_update) {
+            std::cout << __FILE__ << __LINE__ << "ODONHCSpeedUpdate: "  << std::endl;
+            ODONHCSpeedUpdate();
+            // lcSpeedUpdate(pvacur_, veh_speed_.speed_veh);
+            gnss_valid_ = false;
+        }
+        if (false == gnss_valid_ || (imucur_.time  > 641159.49100 && imucur_.time  < 641218.5)) {
+            gnss_valid_ = false;
+        }
+
         // ODONHCSpeedUpdate();
         // std::cout << __FILE__ << __LINE__ << "pvacur_.rool: " << pvacur_.vel[0] << std::endl;
         // std::cout << __FILE__ << __LINE__ << "pvacur_.pitch: " << pvacur_.vel[1] << std::endl;
@@ -191,6 +216,7 @@ void GIEngine::newImuProcess() {
     }
 
     if (true == gnss_valid_) {
+        std::cout << __FILE__ << __LINE__ << "gnssUpdate: "  << std::endl;
         gnssUpdate(gnssdata_);
         // dx_.setZero();
         stateFeedback();
@@ -633,6 +659,10 @@ void GIEngine::stateFeedback() {
     // velocity error feedback
     vectemp = dx_.block(V_ID, 0, 3, 1);
     pvacur_.vel -= vectemp;
+    if (false == gnss_valid_ || (imucur_.time  > 641159.49100 && imucur_.time  < 641218.5)) {
+        // pvacur_.vel(1) = 0.0;
+    }
+
 
     // 姿态误差反馈
     // attitude error feedback
@@ -665,7 +695,7 @@ void GIEngine::stateFeedback() {
 }
 
 void GIEngine::ODONHCUpdateFeedback(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixXd &R) {
-    dx_.setZero();
+    // dx_.setZero();
     EKFUpdate(dz, H, R);
     stateFeedback();
     dx_.setZero();
@@ -788,8 +818,9 @@ bool GIEngine::ODONHCSpeedUpdate() {
         R = noise * Eigen::MatrixXd::Identity(3, 3);
     // } else if (lcconfig->isusenhc) {
     } else if (1) {
+        /*
         // NHC 速度观测：在此简化为只观测 x 轴速度误差
-        dz.resize(1, 1);
+        dz.resize(2, 1);
         Eigen::Vector3d wie_n;
         wie_n << WGS84_WIE * cos(pvapre_.pos[0]), 0, -WGS84_WIE * sin(pvapre_.pos[0]);
         // 将自车坐标系前向速度转换到导航坐标系
@@ -801,20 +832,219 @@ bool GIEngine::ODONHCSpeedUpdate() {
         std::cout << __FILE__ << __LINE__ << ", " << "wie_n(0): " << wie_n(0) << std::endl;
         std::cout << __FILE__ << __LINE__ << ", " << "dz: " << dz.transpose() << std::endl;
 
-        H = Eigen::MatrixXd::Zero(1, stateDim);
+        Eigen::Matrix3d C_nb = pvapre_.att.cbn.transpose();  // 从导航到车体的旋转矩阵
+        Eigen::Vector3d vel_body = C_nb * pvapre_.vel;
+        // 侧向速度残差（期望值为0）
+        double lateral_residual = 0.0 - vel_body(1);
+        dz(1, 0) = lateral_residual;
+
+        H = Eigen::MatrixXd::Zero(2, stateDim);
         // 观测矩阵 H 在速度状态中 x 方向的系数置 1（假设 x 轴速度对应状态向量中 V_ID 下标处）
         H(0, V_ID) = 1.0;
+        double psi = -pvapre_.att.euler(2);
+        // 根据车辆坐标系和导航系的转换关系：
+        // v_y_body ≈ -sin(psi)*v_x_nav + cos(psi)*v_y_nav
+        H(1, V_ID)     = -sin(psi);
+        H(1, V_ID + 1) =  cos(psi);
 
         // double noise = lcconfig->obsstd(0) * lcconfig->obsstd(0);
-        double noise = 0.1 * 0.1;
-        R = noise * Eigen::MatrixXd::Identity(1, 1);
+        // double noise = 0.01 * 0.01;
+        // R = noise * Eigen::MatrixXd::Identity(1, 1);
+        // 3. 构造测量噪声矩阵 R (2x2)
+        // 正向速度噪声与侧向约束噪声可以根据实验标定进行调整
+        Eigen::MatrixXd R = Eigen::MatrixXd::Zero(2, 2);
+        R(0, 0) = 0.1 * 0.1;   // 正向速度噪声
+        R(1, 1) = 0.1 * 0.1;   // 侧向约束噪声
+        */
+
+        /*
+        
+        // 1. 构造 NHC 速度观测（无杆臂，b系与v系相同）
+        // 此时，转换矩阵直接由导航到车体的旋转矩阵给出，即：
+        Eigen::Matrix3d C_nb = pvapre_.att.cbn.transpose();  // 从导航到车体的旋转矩阵
+
+        // 2. 计算速度转换
+        // 将导航系下的速度转换到车体坐标系（这里得到的就是车辆在车体下的速度，包含正向和侧向分量）
+        Eigen::Vector3d vel_body = C_nb * pvapre_.vel;
+
+        // 此外，正向速度观测中还加入了地球旋转速率的影响（wie_n），保持不变
+        Eigen::Vector3d wie_n;
+        wie_n << WGS84_WIE * cos(pvapre_.pos[0]), 0, -WGS84_WIE * sin(pvapre_.pos[0]);
+
+        // 3. 构造测量残差 dz
+        // dz 的第一行为正向（x 轴）速度误差，第二行为侧向（车体 y 轴）速度误差（非完整约束要求侧向速度接近零）
+        dz.resize(18, 1);
+        dz.setZero();
+        {
+            // 将车体前向速度转换到导航系（注意：如果 imucur_.odovel 已经在车体系，则先转换到导航系）
+            // 此处假设 imucur_.odovel 为车体系测量值
+            Eigen::Vector3d vel_car_to_nav = pvapre_.att.cbn * imucur_.odovel;
+            // 正向速度残差：期望值为 vel_car_to_nav(0) 加上地球旋转影响（近似补偿一半 dt 影响）
+            // 注意 dt 这里固定使用 0.02（整秒或采样间隔，根据实际情况调整）
+            dz(3, 0) = pvapre_.vel(0) - (vel_car_to_nav(0) + wie_n(0) * 0.02 / 2);
+
+            // 侧向速度残差：期望值为 0（非完整约束，车体侧向速度应为 0）
+            dz(4, 0) = 0.0 - vel_body(1);
+
+            std::cout << __FILE__ << __LINE__ << ", " << "pvacur_.vel(0): " << pvacur_.vel(0) << std::endl;
+            std::cout << __FILE__ << __LINE__ << ", " << "vel_car_to_nav(0): " << vel_car_to_nav(0) << std::endl;
+            std::cout << __FILE__ << __LINE__ << ", " << "wie_n(0): " << wie_n(0) << std::endl;
+            std::cout << __FILE__ << __LINE__ << ", " << "dz: " << dz.transpose() << std::endl;
+        }
+
+        // 4. 构造观测矩阵 H
+        // 状态向量中假设速度分量在下标 V_ID（正向）、V_ID+1（横向）、V_ID+2（垂向）
+        // 这里构造两行观测方程：
+        // 第1行：正向速度误差，对应于 v_north 分量（或者直接使用正向速度分量，本例中直接置 1）
+        // 第2行：侧向非完整约束，根据车辆坐标系与导航系转换关系确定
+        H = Eigen::MatrixXd::Zero(18, stateDim);
+
+        // 第一行：仅对正向速度（假设 x 轴）直接观测
+        H(0, V_ID) = 1.0;
+
+        // 第二行：由车辆坐标系转换关系得，假设航向角 psi 定义为：正北顺时针为正
+        // 此处计算航向角并取反（根据实际定义可能需要调整符号）
+        double psi = -pvapre_.att.euler(2);
+        // 车辆侧向速度与导航系下速度的线性化关系：
+        // v_y_body ≈ -sin(psi)*v_north + cos(psi)*v_east
+        H(1, V_ID)     = -sin(psi);
+        H(1, V_ID + 1) =  cos(psi);
+
+        // 5. 构造测量噪声矩阵 R (2x2)
+        // 根据实验标定设置噪声水平（此处均设置为 0.1m/s 的标准差）
+        Eigen::MatrixXd R = Eigen::MatrixXd::Zero(18, 18);
+        R(V_ID, V_ID) = 0.1 * 0.1;   // 正向速度噪声
+        R(V_ID + 1, V_ID + 1) = 0.1 * 0.1;   // 侧向约束噪声
+
+        */
+
+        // 1. 计算从导航到车体的旋转矩阵
+        Eigen::Matrix3d C_nb = pvapre_.att.cbn.transpose();  // C_nb = (C_bn)^T
+
+        // 2. 将导航系下的速度转换到车体坐标系
+        Eigen::Vector3d b_pva = C_nb * pvapre_.vel;  // 预测的车体速度
+
+        // 3. 计算姿态敏感性项：apsi = C_nb * skew(velocity)
+        // 这里的 skew(velocity) 为速度的反对称矩阵，描述小姿态误差对测量的影响
+        Eigen::Matrix3d vel_skew = Rotation::skewSymmetric(pvapre_.vel);
+        Eigen::Matrix3d apsi = C_nb * vel_skew; 
+
+        // 4. 构造测量残差 dz (3×1)
+        // 对于正向分量，用轮速计测得的 odo_speed 补偿；侧向与垂向分量期望为零
+        Eigen::MatrixXd dz(3, 1);
+        dz(0, 0) = b_pva(0) - imucur_.odovel(0);  // 前向速度残差
+        dz(1, 0) = b_pva(1);              // 侧向残差
+        dz(2, 0) = b_pva(2);              // 垂向残差
+
+        // 5. 构造观测矩阵 H (3×stateDim)
+        // 初始化 H 为零矩阵
+        H = Eigen::MatrixXd::Zero(3, stateDim);
+
+        // 5.1 对于速度状态 (状态下标 V_ID 到 V_ID+2)
+        // 若需要调整测量顺序（例如将预测的 forward 对应为第一行），可以对 C_nb 进行重排
+        // 例如，假设当前 C_nb 的行顺序为 [row0, row1, row2] 对应车体的 [右, 下, 前]，
+        // 但我们希望按照 [前, 右, 下] 的顺序进行测量，则需要重排：
+        Eigen::Matrix3d C_nb_fill;
+        C_nb_fill.row(0) = C_nb.row(2);  // 前向分量
+        C_nb_fill.row(1) = C_nb.row(0);  // 右向分量
+        C_nb_fill.row(2) = C_nb.row(1);  // 下向分量
+        // 将此部分赋值到 H 对应位置
+        H.block(0, V_ID, 3, 3) = C_nb_fill;
+
+        // 5.2 对于姿态状态 (状态下标 PHI_ID 到 PHI_ID+2)
+        // 计算姿态部分的雅可比矩阵：-C_nb * skew(v)
+        // 同样，对 apsi 进行相应的重排：
+        Eigen::Matrix3d apsi_fill;
+        apsi_fill.row(0) = -apsi.row(2);
+        apsi_fill.row(1) = -apsi.row(0);
+        apsi_fill.row(2) = -apsi.row(1);
+        H.block(0, PHI_ID, 3, 3) = apsi_fill;
+
+        // 6. 构造测量噪声矩阵 R (3×3)
+        // 例如，前向测量噪声与侧向、垂向噪声分别设定为 0.1 m/s 的标准差
+        Eigen::MatrixXd R = Eigen::MatrixXd::Zero(3, 3);
+        R(0, 0) = 0.1 * 0.1;
+        R(1, 1) = 0.1 * 0.1;
+        R(2, 2) = 0.1 * 0.1;
+
+        // // 7. 调用 EKF 更新及状态反馈
+        // EKFUpdate(dz, H, R);
+        // stateFeedback();
+        // dx_.setZero();
+
     } else {
         // 如果既不零速也不使用 NHC，则不做更新
         return true;
     }
 
-    // 4. 调用 EKF 更新函数进行协方差和状态更新
-    ODONHCUpdateFeedback(dz, H, R);
+    EKFUpdate(dz, H, R);
+    stateFeedback();
+    dx_.setZero();
+
+    // // 4. 调用 EKF 更新函数进行协方差和状态更新
+    // ODONHCUpdateFeedback(dz, H, R);
 
     return true;
 }
+
+bool GIEngine::lcSpeedUpdate(PVA pvacur, double odo_speed){
+    /* 计算nbwb */  
+    Eigen::Matrix3d cnb = pvacur.att.cbn.transpose();
+    Eigen::Vector3d tmp3 = cnb*pvacur.nbwn;
+  
+    Eigen::Vector3d odolever(0,0,0);
+    /* 里程计杆臂带来的速度差异 */
+    tmp3 = {0,0,0};
+  
+    /* 在速度改变之前变换, 姿态项 */
+    Eigen::Matrix3d velanti = Rotation::skewSymmetric(pvacur.vel);
+    Eigen::Matrix3d apsi = cnb* velanti;
+  
+    /* 速度观测值 */
+    Eigen::Vector3d tmp9 = cnb * pvacur.vel;
+  
+    /* 陀螺零偏项 */
+    Eigen::Matrix3d ag;
+    ag<<0,0,0,0,0,0,0,0,0;
+    
+      // 构造GNSS位置观测矩阵
+      // construct GNSS position measurement matrix
+      Eigen::MatrixXd H_gnsspos;
+      H_gnsspos.resize(3, Cov_.rows());
+      H_gnsspos.setZero();
+  
+      Eigen::Matrix3d cnb_fill;
+      cnb_fill.block(0,0,1,3) = cnb.block(2,0,1,3);
+      cnb_fill.block(1,0,1,3) = cnb.block(1,0,1,3);
+      cnb_fill.block(2,0,1,3) = cnb.block(0,0,1,3);
+      Eigen::Matrix3d apsi_fill;
+      apsi_fill.block(0,0,1,3) = -apsi.block(2,0,1,3);
+      apsi_fill.block(1,0,1,3) = -apsi.block(1,0,1,3);
+      apsi_fill.block(2,0,1,3) = -apsi.block(0,0,1,3);
+      Eigen::Matrix3d ag_fill;
+      ag_fill.block(0,0,1,3) = -ag.block(2,0,1,3);
+      ag_fill.block(1,0,1,3) = -ag.block(1,0,1,3);
+      ag_fill.block(2,0,1,3) = -ag.block(0,0,1,3);
+     
+      H_gnsspos.block(0, V_ID, 3, 3)   = cnb_fill;
+      H_gnsspos.block(0, PHI_ID, 3, 3) = apsi_fill;
+      H_gnsspos.block(0, BG_ID, 3, 3) = ag;
+      // 位置观测噪声阵
+      // construct measurement noise matrix
+      Eigen::MatrixXd R_gnsspos;
+      Eigen::Vector3d odo_std(0.1,0.1,0.1);
+      R_gnsspos = odo_std.cwiseProduct(odo_std).asDiagonal();
+      if(timestamp_>=641447 && timestamp_<= 641460){
+          std::cout<<__FILE__<<","<<__LINE__<<", "<<" H_gnsspos:\n "<<H_gnsspos<<std::endl;
+          std::cout<<__FILE__<<","<<__LINE__<<", "<<" R_gnsspos:\n "<<R_gnsspos<<std::endl;
+      }
+      Eigen::MatrixXd b_pva(3,1);
+      b_pva = cnb*pvacur.vel;
+      Eigen::MatrixXd dz(3,1);
+      dz << b_pva(0)- odo_speed, b_pva(1),b_pva(2);
+      // EKF更新协方差和误差状态
+      // do EKF update to update covariance and error state
+      EKFUpdate(dz, H_gnsspos, R_gnsspos);
+      stateFeedback();
+    return true;
+  }

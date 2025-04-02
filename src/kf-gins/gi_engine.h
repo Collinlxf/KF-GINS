@@ -57,7 +57,7 @@ public:
     }
 
     void addVehData(const Veh_Speed &veh_speed) {
-
+        veh_speed_pre_ = veh_speed_;
         veh_speed_ = veh_speed;
     }
 
@@ -217,6 +217,7 @@ private:
 
     void ODONHCUpdateFeedback(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixXd &R);
     bool ODONHCSpeedUpdate();
+    bool lcSpeedUpdate(PVA pvacur, double odo_speed);
 
     /**
      * @brief 反馈误差状态到当前状态
@@ -251,6 +252,7 @@ private:
     // raw imudata and gnssdata
     IMU imupre_;
     IMU imucur_;
+    Veh_Speed veh_speed_pre_;
     Veh_Speed veh_speed_;
     GNSS gnssdata_;
     bool gnss_valid_;

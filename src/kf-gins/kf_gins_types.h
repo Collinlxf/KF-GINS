@@ -42,6 +42,8 @@ typedef struct PVA {
     Eigen::Vector3d pos;
     Eigen::Vector3d vel;
     Attitude att;
+    Eigen::Vector3d nbwn;/* b to n in n, rad/s */
+    Eigen::Vector3d nban;/* b to n in n, m/s^2 */
 } PVA;
 
 typedef struct ImuError {
