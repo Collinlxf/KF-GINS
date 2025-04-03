@@ -111,6 +111,9 @@ void GIEngine::initialize(const NavState &initstate, const NavState &initstate_s
 }
 
 void GIEngine::newImuProcess() {
+    if (veh_speed_.speed_veh < 0.8) {
+        return;
+    }
 
     // 当前IMU时间作为系统当前状态时间,
     // set current IMU time as the current state time
@@ -154,7 +157,7 @@ void GIEngine::newImuProcess() {
         }
         if ((false == gnss_valid_ || (imucur_.time  > 641159.49100 && imucur_.time  < 641218.5)) && is_veh_update) {
             std::cout << __FILE__ << __LINE__ << "ODONHCSpeedUpdate: "  << std::endl;
-            ODONHCSpeedUpdate();
+            // ODONHCSpeedUpdate();
             // lcSpeedUpdate(pvacur_, veh_speed_.speed_veh);
             gnss_valid_ = false;
         }

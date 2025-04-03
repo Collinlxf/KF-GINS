@@ -39,6 +39,7 @@ void writeNavResult(double time, NavState &navstate, FileSaver &navfile, FileSav
 void writeSTD(double time, Eigen::MatrixXd &cov, FileSaver &stdfile);
 
 int main(int argc, char *argv[]) {
+    static bool is_start_loc = false;
 
     if (argc != 2) {
         std::cout << "usage: KF-GINS kf-gins.yaml" << std::endl;
@@ -102,10 +103,6 @@ int main(int argc, char *argv[]) {
     ImuFileLoader imufile(imupath, imudatalen, imudatarate);
     VehSpeedFileLoader vehspeedfile(vehspeedpath);
 
-    // 构造GIEngine
-    // Construct GIEngine
-    GIEngine giengine(options);
-
     // 构造输出文件
     // construct output file
     // navfile: gnssweek(1) + time(1) + pos(3) + vel(3) + euler angle(3) = 11
@@ -150,6 +147,23 @@ int main(int argc, char *argv[]) {
         gnss = gnssfile.next();
     } while (gnss.time <= starttime);
 
+    if (gnss.sat_num > 5) {
+        is_start_loc = true;
+        options.initstate.pos = gnss.blh;
+        options.initstate.vel[0] = gnss.speed_gps * cos(gnss.yaw * D2R);
+        options.initstate.vel[1] = gnss.speed_gps * sin(gnss.yaw * D2R);
+        options.initstate.euler[2] = gnss.yaw;
+    }
+    std::cout << __FILE__ << __LINE__ << "gnss.sat_num: " << int(gnss.sat_num) << std::endl;
+    std::cout << __FILE__ << __LINE__ << "gnss.speed_gps: " << gnss.speed_gps << std::endl;
+    std::cout << __FILE__ << __LINE__ << "options.initstate.vel[0]: " << options.initstate.vel[0] << std::endl;
+    std::cout << __FILE__ << __LINE__ << "options.initstate.vel[1]: " << options.initstate.vel[1] << std::endl;
+    std::cout << __FILE__ << __LINE__ << "options.initstate.euler[2]: " << options.initstate.euler[2] << std::endl;
+
+    // 构造GIEngine
+    // Construct GIEngine
+    GIEngine giengine(options);
+
     // 添加IMU数据到GIEngine中，补偿IMU误差
     // add imudata to GIEngine and compensate IMU error
     giengine.addImuData(imu_cur, true);
@@ -173,7 +187,7 @@ int main(int argc, char *argv[]) {
     static int main_num = 0;
     std::cout << "main_num: " << main_num++ << std::endl;
 
-    while (true) {
+    while (is_start_loc) {
         static int while_num = 0;
         std::cout << " " << std::endl;
         std::cout << "while_num: " << while_num++ << std::endl;
