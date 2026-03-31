@@ -697,6 +697,58 @@ void GIEngine::stateFeedback() {
     // dx_.setZero();
 }
 
+/**
+ * @brief ODO/NHC 量测更新与状态反馈的封装接口
+ *
+ * 本函数将 EKF 量测更新（EKFUpdate）与系统状态反馈（stateFeedback）合并为一步完成，
+ * 专门用于里程计（ODO）和非完整性约束（NHC）的速度量测更新场景。
+ *
+ * 调用时机：
+ *   - 在 GNSS 信号不可用或信号质量较差时，利用车辆运动学约束对 INS 进行辅助修正。
+ *   - 典型触发条件：当检测到新的轮速计数据到来（is_veh_update == true）且 gnss_valid_ == false 时。
+ *
+ * 使用方法（以 NHC 为例）：
+ *   @code
+ *   // 1. 将导航系速度转到车体坐标系
+ *   Eigen::Matrix3d C_nb = pvacur_.att.cbn.transpose();
+ *   Eigen::Vector3d b_vel = C_nb * pvacur_.vel;
+ *
+ *   // 2. 构造量测残差 dz（3×1）：前向/侧向/垂向速度残差
+ *   Eigen::MatrixXd dz(3, 1);
+ *   dz << b_vel(0) - odo_speed,  // 前向：轮速计测量值与预测值之差
+ *         b_vel(1),               // 侧向：NHC 约束（期望为 0）
+ *         b_vel(2);               // 垂向：NHC 约束（期望为 0）
+ *
+ *   // 3. 构造观测矩阵 H（3×RANK）
+ *   Eigen::MatrixXd H = Eigen::MatrixXd::Zero(3, Cov_.rows());
+ *   H.block(0, V_ID,   3, 3) = C_nb_reordered;   // 速度状态对应列
+ *   H.block(0, PHI_ID, 3, 3) = apsi_reordered;   // 姿态误差对应列
+ *
+ *   // 4. 构造量测噪声矩阵 R（3×3）
+ *   Eigen::MatrixXd R = Eigen::MatrixXd::Zero(3, 3);
+ *   R(0, 0) = 0.1 * 0.1;   // 前向速度噪声方差 (m/s)^2
+ *   R(1, 1) = 0.1 * 0.1;   // 侧向速度噪声方差
+ *   R(2, 2) = 0.1 * 0.1;   // 垂向速度噪声方差
+ *
+ *   // 5. 调用本函数完成更新与反馈
+ *   ODONHCUpdateFeedback(dz, H, R);
+ *   @endcode
+ *
+ * 内部执行步骤：
+ *   1. EKFUpdate(dz, H, R)  — 利用量测残差更新误差状态 dx_ 和协方差矩阵 Cov_。
+ *   2. stateFeedback()       — 将 dx_ 中的误差增量反馈到 pvacur_（位置/速度/姿态）及 imuerror_ 中。
+ *   3. dx_.setZero()         — 反馈完毕后将误差状态清零，避免下一次更新重复叠加。
+ *
+ * 注意事项：
+ *   - dz、H、R 的行列维度必须匹配：dz 为 (m×1)，H 为 (m×RANK)，R 为 (m×m)，m 为观测维数。
+ *   - 调用本函数后 gnss_valid_ 应保持 false，防止后续流程再次触发 GNSS 更新。
+ *   - 若只需要进行 EKF 更新而不立即反馈，请直接调用 EKFUpdate()；
+ *     若只需状态反馈，请直接调用 stateFeedback()。
+ *
+ * @param dz  量测残差向量（m×1），即"实际观测值 − 预测观测值"
+ * @param H   观测矩阵（m×RANK），将系统误差状态映射到观测空间
+ * @param R   量测噪声协方差矩阵（m×m），描述观测量的不确定性
+ */
 void GIEngine::ODONHCUpdateFeedback(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixXd &R) {
     // dx_.setZero();
     EKFUpdate(dz, H, R);
